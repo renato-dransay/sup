@@ -1,4 +1,6 @@
-import { App, LogLevel } from '@slack/bolt';
+import boltPkg from '@slack/bolt';
+import type { App as AppType } from '@slack/bolt';
+const { App, LogLevel } = boltPkg;
 import { WebClient } from '@slack/web-api';
 import { Config } from './config.js';
 import { logger } from './utils/logger.js';
@@ -24,7 +26,7 @@ import {
   handleStandupSubmission,
 } from './modals/collect-standup.js';
 
-export function createApp(config: Config): App {
+export function createApp(config: Config): AppType {
   const app = new App({
     token: config.slackBotToken,
     signingSecret: config.slackSigningSecret,
