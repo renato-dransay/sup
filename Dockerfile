@@ -3,8 +3,8 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm@9.15.0
+# Install openssl for Prisma and pnpm
+RUN apk add --no-cache openssl && npm install -g pnpm@9.15.0
 
 # Copy package files
 COPY package.json pnpm-lock.yaml* ./
@@ -26,8 +26,8 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm@9.15.0
+# Install openssl for Prisma and pnpm
+RUN apk add --no-cache openssl && npm install -g pnpm@9.15.0
 
 # Copy package files
 COPY package.json pnpm-lock.yaml* ./
