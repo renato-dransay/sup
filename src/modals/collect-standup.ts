@@ -70,6 +70,7 @@ export async function handleStandupSubmission({
     const yesterday = values.yesterday_block.yesterday_input.value as string;
     const today = values.today_block.today_input.value as string;
     const blockers = (values.blockers_block.blockers_input.value as string) || undefined;
+    const notes = (values.notes_block?.notes_input?.value as string) || undefined;
 
     const metadata = JSON.parse(view.private_metadata || '{}') as { standupId?: string };
     const standupId = metadata.standupId;
@@ -79,7 +80,7 @@ export async function handleStandupSubmission({
       return;
     }
 
-    await saveEntry(standupId, body.user.id, yesterday, today, blockers);
+    await saveEntry(standupId, body.user.id, yesterday, today, blockers, notes);
 
     // Send confirmation DM
     await client.chat.postMessage({

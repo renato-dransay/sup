@@ -65,6 +65,7 @@ model Entry {
   yesterday   String
   today       String
   blockers    String?
+  notes       String?
   submittedAt DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

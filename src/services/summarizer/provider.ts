@@ -6,6 +6,12 @@ export interface SummaryResult {
 
 export interface SummarizerProvider {
   generateSummary(
-    entries: Array<{ userId: string; yesterday: string; today: string; blockers?: string }>
+    entries: Array<{
+      userId: string;
+      yesterday: string;
+      today: string;
+      blockers?: string;
+      notes?: string;
+    }>
   ): Promise<SummaryResult>;
 }

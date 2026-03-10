@@ -123,7 +123,8 @@ export async function saveEntry(
   userId: string,
   yesterday: string,
   today: string,
-  blockers?: string
+  blockers?: string,
+  notes?: string
 ): Promise<void> {
   try {
     await prisma.entry.upsert({
@@ -139,11 +140,13 @@ export async function saveEntry(
         yesterday,
         today,
         blockers: blockers || null,
+        notes: notes || null,
       },
       update: {
         yesterday,
         today,
         blockers: blockers || null,
+        notes: notes || null,
         updatedAt: new Date(),
       },
     });

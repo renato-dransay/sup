@@ -15,13 +15,14 @@ export class OpenAISummarizer implements SummarizerProvider {
       yesterday: string;
       today: string;
       blockers?: string;
+      notes?: string;
     }>
   ): Promise<SummaryResult> {
     try {
       const standupText = entries
         .map(
           (entry) =>
-            `User ${entry.userId}:\nYesterday: ${entry.yesterday}\nToday: ${entry.today}\nBlockers: ${entry.blockers || 'None'}`
+            `User ${entry.userId}:\nYesterday: ${entry.yesterday}\nToday: ${entry.today}\nBlockers: ${entry.blockers || 'None'}\nNotes: ${entry.notes || 'None'}`
         )
         .join('\n\n');
 

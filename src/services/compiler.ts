@@ -44,6 +44,7 @@ export async function compileStandup(
             yesterday: entry.yesterday,
             today: entry.today,
             blockers: entry.blockers || undefined,
+            notes: entry.notes || undefined,
           };
         } catch (error) {
           logger.error({ error, userId: entry.userId }, 'Failed to get user info');
@@ -134,6 +135,7 @@ export async function generateAndPostSummary(
     yesterday: string;
     today: string;
     blockers?: string;
+    notes?: string;
   }>,
   summarizer: SummarizerProvider
 ): Promise<void> {
@@ -146,6 +148,7 @@ export async function generateAndPostSummary(
         yesterday: e.yesterday,
         today: e.today,
         blockers: e.blockers || undefined,
+        notes: e.notes || undefined,
       }))
     );
 
@@ -197,6 +200,7 @@ export async function regenerateSummary(
             yesterday: entry.yesterday,
             today: entry.today,
             blockers: entry.blockers || undefined,
+            notes: entry.notes || undefined,
           };
         } catch (error) {
           logger.error({ error, userId: entry.userId }, 'Failed to get user info');

@@ -6,6 +6,7 @@ export interface StandupEntry {
   yesterday: string;
   today: string;
   blockers?: string;
+  notes?: string;
 }
 
 export function buildStandupHeaderBlocks(date: string, timezone: string): KnownBlock[] {
@@ -62,7 +63,17 @@ export function buildEntryBlock(entry: StandupEntry): KnownBlock[] {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*Blockers:* 🚧\n${entry.blockers}`,
+        text: `*Blockers & Risks:* 🚧\n${entry.blockers}`,
+      },
+    });
+  }
+
+  if (entry.notes && entry.notes.trim()) {
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*Additional Notes:* 📝\n${entry.notes}`,
       },
     });
   }
@@ -300,7 +311,7 @@ export function buildStandupCollectionModal(): {
           multiline: true,
           placeholder: {
             type: 'plain_text',
-            text: 'What did you work on yesterday?',
+            text: 'What did you achieve yesterday?',
           },
         },
         label: {
@@ -317,7 +328,7 @@ export function buildStandupCollectionModal(): {
           multiline: true,
           placeholder: {
             type: 'plain_text',
-            text: 'What are you working on today?',
+            text: 'What do you plan to achieve today?',
           },
         },
         label: {
@@ -334,12 +345,30 @@ export function buildStandupCollectionModal(): {
           multiline: true,
           placeholder: {
             type: 'plain_text',
-            text: 'Any blockers or issues?',
+            text: 'Any Blockers or Risks?',
           },
         },
         label: {
           type: 'plain_text',
-          text: 'Blockers (optional)',
+          text: 'Blockers or Risks (Optional)',
+        },
+        optional: true,
+      },
+      {
+        type: 'input',
+        block_id: 'notes_block',
+        element: {
+          type: 'plain_text_input',
+          action_id: 'notes_input',
+          multiline: true,
+          placeholder: {
+            type: 'plain_text',
+            text: 'Additional Notes',
+          },
+        },
+        label: {
+          type: 'plain_text',
+          text: 'Additional Notes (Optional)',
         },
         optional: true,
       },
