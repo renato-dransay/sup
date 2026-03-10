@@ -33,6 +33,8 @@ export function createApp(config: Config): AppType {
     logLevel: config.logLevel === 'debug' ? LogLevel.DEBUG : LogLevel.INFO,
     // HTTP mode (no Socket Mode)
     processBeforeResponse: true,
+    // Disable immediate token verification to prevent unhandled rejection crashes if token is invalid
+    tokenVerificationEnabled: false,
   });
 
   const client = new WebClient(config.slackBotToken);
