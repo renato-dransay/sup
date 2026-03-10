@@ -16,6 +16,12 @@ async function main() {
 
     // Load configuration
     const config = loadConfig();
+
+    // Ensure DATABASE_URL is set for Prisma
+    if (!process.env.DATABASE_URL) {
+      process.env.DATABASE_URL = config.databaseUrl;
+    }
+
     logger.info(
       {
         port: config.port,
