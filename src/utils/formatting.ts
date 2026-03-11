@@ -189,13 +189,16 @@ export function buildConfigModal(currentConfig?: {
         type: 'input',
         block_id: 'channel_block',
         element: {
-          type: 'channels_select',
+          type: 'conversations_select',
           action_id: 'channel_select',
           placeholder: {
             type: 'plain_text',
             text: 'Select a channel',
           },
-          ...(currentConfig?.channelId && { initial_channel: currentConfig.channelId }),
+          filter: {
+            include: ['public', 'private'],
+          },
+          ...(currentConfig?.channelId && { initial_conversation: currentConfig.channelId }),
         },
         label: {
           type: 'plain_text',

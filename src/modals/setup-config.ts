@@ -20,7 +20,7 @@ export function createSetupConfigHandler(
     try {
       const values = view.state.values;
 
-      const channelId = values.channel_block.channel_select.selected_channel as string;
+      const channelId = values.channel_block.channel_select.selected_conversation as string;
       const timeInput = values.time_block.time_input.value as string;
       const timezone = values.timezone_block.timezone_input.value as string;
       const summaryEnabled =
