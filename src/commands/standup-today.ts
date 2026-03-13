@@ -4,6 +4,7 @@ import { prisma } from '../db/prismaClient.js';
 import { createStandup, collectFromUsers } from '../services/collector.js';
 import { compileStandup } from '../services/compiler.js';
 import { SummarizerProvider } from '../services/summarizer/provider.js';
+import { scheduleStandupReminders } from '../services/scheduler.js';
 
 export function createStandupTodayHandler(
   summarizer: SummarizerProvider | null,
@@ -38,7 +39,8 @@ export function createStandupTodayHandler(
       const standupId = await createStandup(
         workspace.id,
         workspace.defaultChannelId,
-        workspace.timezone
+        workspace.timezone,
+        collectionWindowMin
       );
 
       // Reset compiledAt to allow recompilation if running multiple times same day
@@ -48,6 +50,11 @@ export function createStandupTodayHandler(
       });
 
       await collectFromUsers(client, workspace.id, standupId);
+      const standup = await prisma.standup.findUnique({
+        where: { id: standupId },
+        select: { deadlineAt: true },
+      });
+      scheduleStandupReminders(client, standupId, standup?.deadlineAt ?? null);
 
       // Schedule compilation after a short delay
       setTimeout(

@@ -7,6 +7,17 @@ import { getStandupEntries } from './collector.js';
 import { getOptedInUsers } from './users.js';
 import { SummarizerProvider } from './summarizer/provider.js';
 
+export function filterCompilableEntries<
+  T extends {
+    submissionStatus?: string | null;
+    userId: string;
+  },
+>(entries: T[]): { onTimeEntries: T[]; lateEntries: T[] } {
+  const onTimeEntries = entries.filter((entry) => entry.submissionStatus !== 'late');
+  const lateEntries = entries.filter((entry) => entry.submissionStatus === 'late');
+  return { onTimeEntries, lateEntries };
+}
+
 export async function compileStandup(
   client: WebClient,
   standupId: string,
@@ -31,11 +42,12 @@ export async function compileStandup(
     }
 
     const entries = await getStandupEntries(standupId);
+    const { onTimeEntries, lateEntries } = filterCompilableEntries(entries);
     const optedInUsers = await getOptedInUsers(standup.workspaceId);
 
     // Get user names
     const entryData = await Promise.all(
-      entries.map(async (entry) => {
+      onTimeEntries.map(async (entry) => {
         try {
           const userInfo = await getUserInfo(client, entry.userId);
           return {
@@ -59,7 +71,7 @@ export async function compileStandup(
       })
     );
 
-    const submittedUserIds = new Set(entries.map((e) => e.userId));
+    const submittedUserIds = new Set(onTimeEntries.map((e) => e.userId));
     const missedUserIds = optedInUsers.filter((id) => !submittedUserIds.has(id));
 
     // Get names for missed users
@@ -107,10 +119,19 @@ export async function compileStandup(
       },
     });
 
-    logger.info({ standupId, messageTs, channelId: standup.channelId }, 'Stand-up compiled');
+    logger.info(
+      {
+        standupId,
+        messageTs,
+        channelId: standup.channelId,
+        onTimeEntryCount: onTimeEntries.length,
+        lateEntryCount: lateEntries.length,
+      },
+      'Stand-up compiled'
+    );
 
     // Generate summary if enabled
-    if (summarizer && standup.workspace.summaryEnabled && entries.length > 0) {
+    if (summarizer && standup.workspace.summaryEnabled && onTimeEntries.length > 0) {
       try {
         await generateAndPostSummary(client, standup.channelId, messageTs, entryData, summarizer);
       } catch (error) {

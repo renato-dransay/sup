@@ -1,0 +1,167 @@
+openapi: 3.1.0
+info:
+  title: Standup Deadline Reminder Contract
+  version: 0.1.0
+  description: >
+    Contract for deadline-aware standup interactions. Defines user-action
+    payloads and outcomes required for planning and validation.
+servers:
+  - url: https://example.invalid
+paths:
+  /slack/events:
+    post:
+      summary: Receive standup interaction payloads
+      description: >
+        Handles standup submission interactions and command invocations used to
+        create reminder-capable daily windows.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/StandupSubmissionPayload'
+                - $ref: '#/components/schemas/ManualStandupTriggerPayload'
+      responses:
+        '200':
+          description: Interaction accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InteractionAck'
+        '400':
+          description: Invalid payload
+        '500':
+          description: Processing failure
+  /internal/standups/{standupId}/reminders/dispatch:
+    post:
+      summary: Dispatch due reminders for a standup window
+      description: >
+        Internal scheduler-driven endpoint contract for reminder dispatch at
+        15-minute and 5-minute offsets.
+      parameters:
+        - in: path
+          name: standupId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReminderDispatchRequest'
+      responses:
+        '200':
+          description: Reminder dispatch completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReminderDispatchResult'
+components:
+  schemas:
+    StandupSubmissionPayload:
+      type: object
+      required:
+        - type
+        - standupId
+        - workspaceId
+        - userId
+        - submittedAt
+      properties:
+        type:
+          type: string
+          const: standup_submission
+        standupId:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+        submittedAt:
+          type: string
+          format: date-time
+        content:
+          type: object
+          required: [yesterday, today]
+          properties:
+            yesterday:
+              type: string
+            today:
+              type: string
+            blockers:
+              type: string
+            notes:
+              type: string
+    ManualStandupTriggerPayload:
+      type: object
+      required:
+        - type
+        - workspaceId
+        - triggerAt
+      properties:
+        type:
+          type: string
+          const: standup_trigger
+        workspaceId:
+          type: string
+          format: uuid
+        triggerAt:
+          type: string
+          format: date-time
+    InteractionAck:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [accepted]
+        message:
+          type: string
+          description: >
+            For on-time submissions, message must begin with "Thank you, buddy!".
+        submissionStatus:
+          type: string
+          enum: [on_time, late]
+    ReminderDispatchRequest:
+      type: object
+      required:
+        - workspaceId
+        - deadlineAt
+        - offsets
+      properties:
+        workspaceId:
+          type: string
+          format: uuid
+        deadlineAt:
+          type: string
+          format: date-time
+        offsets:
+          type: array
+          items:
+            type: integer
+            enum: [15, 5]
+          minItems: 1
+    ReminderDispatchResult:
+      type: object
+      required:
+        - standupId
+        - dispatched
+        - skipped
+        - failed
+      properties:
+        standupId:
+          type: string
+          format: uuid
+        dispatched:
+          type: integer
+          minimum: 0
+        skipped:
+          type: integer
+          minimum: 0
+        failed:
+          type: integer
+          minimum: 0

@@ -3,7 +3,7 @@ import { WebClient } from '@slack/web-api';
 import { prisma } from '../db/prismaClient.js';
 import { logger } from '../utils/logger.js';
 import { acquireLock, releaseLock } from '../utils/locks.js';
-import { createStandup, collectFromUsers } from './collector.js';
+import { createStandup, collectFromUsers, sendRemindersForOffset } from './collector.js';
 import { compileStandup } from './compiler.js';
 import { SummarizerProvider } from './summarizer/provider.js';
 
@@ -13,7 +13,52 @@ interface ScheduledJob {
 }
 
 const jobs = new Map<string, ScheduledJob>();
+const reminderTimers = new Map<string, NodeJS.Timeout[]>();
 const INSTANCE_ID = `scheduler-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+
+export function getReminderOffsets(): Array<15 | 5> {
+  return [15, 5];
+}
+
+function trackReminderTimer(standupId: string, timer: NodeJS.Timeout): void {
+  const existing = reminderTimers.get(standupId) || [];
+  existing.push(timer);
+  reminderTimers.set(standupId, existing);
+}
+
+export function scheduleStandupReminders(
+  client: WebClient,
+  standupId: string,
+  deadlineAt: Date | null
+): void {
+  if (!deadlineAt) {
+    logger.warn({ standupId }, 'Skipping reminder scheduling because deadline is missing');
+    return;
+  }
+
+  for (const offset of getReminderOffsets()) {
+    const scheduledAt = new Date(deadlineAt.getTime() - offset * 60 * 1000);
+    const delayMs = Math.max(0, scheduledAt.getTime() - Date.now());
+
+    const timer = setTimeout(() => {
+      void sendRemindersForOffset(client, standupId, offset);
+    }, delayMs);
+
+    trackReminderTimer(standupId, timer);
+    logger.info({ standupId, offsetMinutes: offset, scheduledAt }, 'Reminder scheduled');
+  }
+}
+
+function clearReminderTimersForStandup(standupId: string): void {
+  const timers = reminderTimers.get(standupId);
+  if (!timers) return;
+
+  for (const timer of timers) {
+    clearTimeout(timer);
+  }
+
+  reminderTimers.delete(standupId);
+}
 
 export async function scheduleWorkspaceJobs(
   client: WebClient,
@@ -72,10 +117,16 @@ export async function scheduleWorkspaceJob(
             const standupId = await createStandup(
               workspaceId,
               workspace.defaultChannelId,
-              workspace.timezone
+              workspace.timezone,
+              collectionWindowMin
             );
 
             await collectFromUsers(client, workspaceId, standupId);
+            const standup = await prisma.standup.findUnique({
+              where: { id: standupId },
+              select: { deadlineAt: true },
+            });
+            scheduleStandupReminders(client, standupId, standup?.deadlineAt ?? null);
 
             logger.info({ workspaceId, standupId }, 'Collection started');
           } catch (error) {
@@ -183,6 +234,9 @@ export function stopAllJobs(): void {
     job.task.stop();
     job.compileTask.stop();
     logger.info({ workspaceId }, 'Job stopped');
+  }
+  for (const standupId of reminderTimers.keys()) {
+    clearReminderTimersForStandup(standupId);
   }
   jobs.clear();
   logger.info('All jobs stopped');

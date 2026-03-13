@@ -21,6 +21,18 @@ export function formatDateTime(date: Date, timezone: string): string {
   }).format(date);
 }
 
+export function calculateDeadlineAt(startedAt: Date, collectionWindowMin: number): Date {
+  return new Date(startedAt.getTime() + collectionWindowMin * 60 * 1000);
+}
+
+export function isOnTimeSubmission(submittedAt: Date, deadlineAt: Date): boolean {
+  return submittedAt.getTime() <= deadlineAt.getTime();
+}
+
+export function getReminderScheduleTime(deadlineAt: Date, offsetMinutes: number): Date {
+  return new Date(deadlineAt.getTime() - offsetMinutes * 60 * 1000);
+}
+
 export function getTodayDate(timezone: string): string {
   const now = new Date();
   const formatted = new Intl.DateTimeFormat('en-CA', {

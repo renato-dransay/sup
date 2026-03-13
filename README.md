@@ -1,6 +1,8 @@
 # SUP (Stand UP) Slack Bot
 
-A Slack bot that automates daily stand-ups for distributed teams. It collects updates asynchronously via DMs, compiles them into organized summaries, and optionally generates AI insights using OpenAI.
+A Slack bot that automates daily stand-ups for distributed teams. It collects
+updates asynchronously via DMs, compiles them into organized summaries, and
+optionally generates AI insights using OpenAI.
 
 ## What it does
 
@@ -11,7 +13,8 @@ The bot handles the entire stand-up workflow:
 3. **Automatic Compilation**: After a collection window, the bot posts a compiled message to your channel
 4. **AI Summaries**: Optionally generates highlights, blockers, and action items using OpenAI
 
-This eliminates the need for synchronous stand-up meetings while keeping everyone informed.
+This eliminates the need for synchronous stand-up meetings while keeping
+everyone informed.
 
 ## Key Features
 
@@ -21,6 +24,7 @@ This eliminates the need for synchronous stand-up meetings while keeping everyon
 - **AI-powered summaries** - Get insights from OpenAI (optional)
 - **Manual triggers** - Run stand-ups on-demand with `/standup-today`
 - **HTTP mode** - Fast, reliable, production-ready
+- **Deadline reminders** - Clear submission deadline plus 15-minute and 5-minute reminders for non-submitters
 
 ## Commands
 
@@ -64,7 +68,7 @@ Built with TypeScript and designed for production use:
    ```bash
    cp .env.example .env
    ```
-   
+
    Required variables:
    ```
    SLACK_BOT_TOKEN=xoxb-...
@@ -102,7 +106,8 @@ The project includes Docker support:
 docker compose up -d
 ```
 
-For production, deploy to any platform that supports Docker (Render, Railway, Fly.io, etc.) or use the included GitHub Actions workflow.
+For production, deploy to any platform that supports Docker (Render, Railway,
+Fly.io, etc.) or use the included GitHub Actions workflow.
 
 ## Configuration
 
@@ -116,10 +121,10 @@ SLACK_SIGNING_SECRET=your-secret
 # Optional
 OPENAI_API_KEY=sk-your-key          # For AI summaries
 DATABASE_URL=file:./prod.db         # Default: file:./dev.db
-PORT=3000                            # Default: 3000
-COLLECTION_WINDOW_MIN=45             # Default: 45 minutes
-SUMMARY_ENABLED=true                 # Default: true
-DEFAULT_TZ=Asia/Kolkata              # Default: Asia/Kolkata
+PORT=3000                           # Default: 3000
+COLLECTION_WINDOW_MIN=45            # Default: 45 minutes
+SUMMARY_ENABLED=true                # Default: true
+DEFAULT_TZ=Asia/Kolkata             # Default: Asia/Kolkata
 ```
 
 ## Development
@@ -145,6 +150,17 @@ pnpm lint
 pnpm format
 ```
 
+## Engineering Guardrails
+
+- Behavior-changing work must ship with automated tests and pass `pnpm test`,
+  `pnpm typecheck`, and `pnpm lint` before merge.
+- Schema changes must use Prisma migrations under `prisma/migrations/`.
+- Scheduler changes must preserve timezone-aware, idempotent stand-up execution.
+- OpenAI summarization is optional; core stand-up collection and compilation must
+  continue to work when AI is disabled or unavailable.
+- Late submissions are stored for traceability and excluded from same-day
+  compiled summaries.
+
 ## How it works
 
 ### Database Schema
@@ -159,7 +175,8 @@ The bot uses Prisma with SQLite (easily swappable to PostgreSQL/MySQL):
 
 ### Scheduling
 
-Stand-ups are scheduled using node-cron based on your configured time and timezone. The bot:
+Stand-ups are scheduled using node-cron based on your configured time and
+timezone. The bot:
 
 1. Triggers collection at the specified time
 2. Waits for the collection window (default: 45 minutes)
@@ -178,4 +195,6 @@ The bot includes several optimizations:
 
 ## Contributing
 
-Contributions are welcome. Please open an issue first to discuss what you'd like to change.
+Contributions are welcome. Please open an issue first to discuss what you'd like
+to change, and include the validation commands you ran for behavior-changing
+updates.
