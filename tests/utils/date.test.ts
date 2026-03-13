@@ -5,6 +5,9 @@ import {
   buildCron,
   validateTimezone,
   getTodayDate,
+  calculateDeadlineAt,
+  getReminderScheduleTime,
+  isOnTimeSubmission,
 } from '../../src/utils/date.js';
 
 describe('date utilities', () => {
@@ -53,5 +56,25 @@ describe('date utilities', () => {
       expect(date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
   });
-});
 
+  describe('deadline helpers', () => {
+    it('should calculate deadline from collection window', () => {
+      const startedAt = new Date('2026-03-13T09:00:00Z');
+      const deadlineAt = calculateDeadlineAt(startedAt, 45);
+      expect(deadlineAt.toISOString()).toBe('2026-03-13T09:45:00.000Z');
+    });
+
+    it('should calculate reminder schedule time from deadline', () => {
+      const deadlineAt = new Date('2026-03-13T09:45:00Z');
+      const reminderAt = getReminderScheduleTime(deadlineAt, 15);
+      expect(reminderAt.toISOString()).toBe('2026-03-13T09:30:00.000Z');
+    });
+
+    it('should detect on-time submission including exact deadline', () => {
+      const deadlineAt = new Date('2026-03-13T09:45:00Z');
+      expect(isOnTimeSubmission(new Date('2026-03-13T09:44:59Z'), deadlineAt)).toBe(true);
+      expect(isOnTimeSubmission(new Date('2026-03-13T09:45:00Z'), deadlineAt)).toBe(true);
+      expect(isOnTimeSubmission(new Date('2026-03-13T09:45:01Z'), deadlineAt)).toBe(false);
+    });
+  });
+});

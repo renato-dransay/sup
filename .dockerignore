@@ -1,11 +1,13 @@
 node_modules
 dist
 .git
+Dockerfile*
 .gitignore
+.dockerignore
 *.md
 .env
 .env.*
-*.log
+*.log*
 coverage
 .vscode
 .idea
@@ -14,4 +16,3 @@ coverage
 data/
 tests/
 scripts/dev-seed.ts
-

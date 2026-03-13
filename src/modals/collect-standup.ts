@@ -1,8 +1,21 @@
 import { AllMiddlewareArgs, SlackViewMiddlewareArgs, SlackActionMiddlewareArgs } from '@slack/bolt';
 import { logger } from '../utils/logger.js';
-import { saveEntry } from '../services/collector.js';
+import { saveEntry, SUBMISSION_STATUS, SubmissionStatus } from '../services/collector.js';
+import { formatDateTime } from '../utils/date.js';
 import { buildStandupCollectionModal } from '../utils/formatting.js';
 import { openModal } from '../services/slack.js';
+import { prisma } from '../db/prismaClient.js';
+
+export function buildSubmissionConfirmationText(
+  status: SubmissionStatus,
+  deadlineText: string
+): string {
+  if (status === SUBMISSION_STATUS.ON_TIME) {
+    return '✅ Thank you, buddy! Your stand-up has been submitted successfully.';
+  }
+
+  return `⏰ The submission window closed at ${deadlineText}. Your update was saved as late and will be excluded from today's summary.`;
+}
 
 export async function handleOpenStandupModal({
   ack,
@@ -80,15 +93,36 @@ export async function handleStandupSubmission({
       return;
     }
 
-    await saveEntry(standupId, body.user.id, yesterday, today, blockers, notes);
-
-    // Send confirmation DM
-    await client.chat.postMessage({
-      channel: body.user.id,
-      text: `✅ Thank you! Your stand-up has been submitted successfully.`,
+    const standup = await prisma.standup.findUnique({
+      where: { id: standupId },
+      include: { workspace: true },
     });
 
-    logger.info({ userId: body.user.id, standupId }, 'Stand-up entry submitted');
+    const { status, deadlineAt } = await saveEntry(
+      standupId,
+      body.user.id,
+      yesterday,
+      today,
+      blockers,
+      notes
+    );
+
+    // Send confirmation DM
+    const deadlineText =
+      deadlineAt && standup?.workspace?.timezone
+        ? formatDateTime(deadlineAt, standup.workspace.timezone)
+        : 'the submission deadline';
+    const confirmationText = buildSubmissionConfirmationText(status, deadlineText);
+
+    await client.chat.postMessage({
+      channel: body.user.id,
+      text: confirmationText,
+    });
+
+    logger.info(
+      { userId: body.user.id, standupId, submissionStatus: status },
+      'Stand-up entry submitted'
+    );
   } catch (error) {
     logger.error({ error, view }, 'Failed to handle standup submission');
   }

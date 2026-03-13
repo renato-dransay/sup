@@ -46,12 +46,14 @@ model Standup {
   workspaceId String
   date        String
   startedAt   DateTime
+  deadlineAt  DateTime?
   compiledAt  DateTime?
   channelId   String
   messageTs   String?
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   entries   Entry[]
+  reminders ReminderDispatch[]
 
   @@unique([workspaceId, date])
   @@index([workspaceId])
@@ -67,6 +69,7 @@ model Entry {
   blockers    String?
   notes       String?
   submittedAt DateTime  @default(now())
+  submissionStatus String   @default("on_time")
   updatedAt   DateTime  @updatedAt
 
   standup Standup @relation(fields: [standupId], references: [id], onDelete: Cascade)
@@ -76,6 +79,23 @@ model Entry {
   @@index([userId])
 }
 
+model ReminderDispatch {
+  id            String         @id @default(uuid())
+  standupId     String
+  userId        String
+  offsetMinutes Int
+  scheduledFor  DateTime
+  sentAt        DateTime?
+  status        String @default("pending")
+  failureReason String?
+
+  standup Standup @relation(fields: [standupId], references: [id], onDelete: Cascade)
+
+  @@unique([standupId, userId, offsetMinutes])
+  @@index([standupId, status, offsetMinutes])
+  @@index([scheduledFor])
+}
+
 model JobLock {
   key       String   @id
   heldBy    String
@@ -83,4 +103,3 @@ model JobLock {
 
   @@index([expiresAt])
 }
-
