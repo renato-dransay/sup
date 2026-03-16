@@ -100,9 +100,13 @@ export async function scheduleWorkspaceJob(
 
     const lockKey = `standup-job-${workspaceId}`;
 
+    // Enforce weekdays-only (Mon–Fri), regardless of what's stored in the DB
+    const cronParts = workspace.cron.split(' ');
+    const weekdayCron = `${cronParts[0]} ${cronParts[1]} * * 1-5`;
+
     // Schedule collection job
     const collectionTask = cron.schedule(
-      workspace.cron,
+      weekdayCron,
       () => {
         void (async () => {
           const acquired = await acquireLock(lockKey, INSTANCE_ID);
@@ -112,7 +116,7 @@ export async function scheduleWorkspaceJob(
           }
 
           try {
-            logger.info({ workspaceId, cron: workspace.cron }, 'Starting scheduled stand-up');
+            logger.info({ workspaceId, cron: weekdayCron }, 'Starting scheduled stand-up');
 
             const standupId = await createStandup(
               workspaceId,
@@ -158,7 +162,7 @@ export async function scheduleWorkspaceJob(
       compileHour = compileHour % 24;
     }
 
-    const compileCron = `${compileMinute} ${compileHour} * * *`;
+    const compileCron = `${compileMinute} ${compileHour} * * 1-5`;
 
     // Schedule compilation job
     const compileTask = cron.schedule(
@@ -206,7 +210,7 @@ export async function scheduleWorkspaceJob(
     jobs.set(workspaceId, { task: collectionTask, compileTask });
 
     logger.info(
-      { workspaceId, collectionCron: workspace.cron, compileCron, timezone: workspace.timezone },
+      { workspaceId, collectionCron: weekdayCron, compileCron, timezone: workspace.timezone },
       'Workspace job scheduled'
     );
   } catch (error) {

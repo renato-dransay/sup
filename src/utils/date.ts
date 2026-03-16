@@ -57,7 +57,7 @@ export function parseCron(cron: string): { hour: number; minute: number } | null
 }
 
 export function buildCron(hour: number, minute: number): string {
-  return `${minute} ${hour} * * *`;
+  return `${minute} ${hour} * * 1-5`;
 }
 
 export function getNextCronTime(cronExpression: string, timezone: string): Date | null {
