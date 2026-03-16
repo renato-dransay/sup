@@ -146,7 +146,6 @@ export async function scheduleWorkspaceJob(
     );
 
     // Calculate compilation cron (collection time + window)
-    const cronParts = workspace.cron.split(' ');
     const collectionMinute = parseInt(cronParts[0], 10);
     const collectionHour = parseInt(cronParts[1], 10);
 
