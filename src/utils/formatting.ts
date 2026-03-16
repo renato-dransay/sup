@@ -9,7 +9,21 @@ export interface StandupEntry {
   notes?: string;
 }
 
-export function buildStandupHeaderBlocks(date: string, timezone: string): KnownBlock[] {
+export function buildStandupHeaderBlocks(
+  date: string,
+  timezone: string,
+  deadlineText?: string | null
+): KnownBlock[] {
+  const metadataParts = [`*Timezone:* ${timezone}`];
+
+  if (deadlineText) {
+    metadataParts.push(`*Deadline:* ${deadlineText}`);
+  }
+
+  metadataParts.push(
+    `*Generated:* <!date^${Math.floor(Date.now() / 1000)}^{date_pretty} at {time}|${new Date().toISOString()}>`
+  );
+
   return [
     {
       type: 'header',
@@ -24,7 +38,7 @@ export function buildStandupHeaderBlocks(date: string, timezone: string): KnownB
       elements: [
         {
           type: 'mrkdwn',
-          text: `*Timezone:* ${timezone} | *Generated:* <!date^${Math.floor(Date.now() / 1000)}^{date_pretty} at {time}|${new Date().toISOString()}>`,
+          text: metadataParts.join(' | '),
         },
       ],
     },
@@ -107,9 +121,12 @@ export function buildCompleteStandupBlocks(
   date: string,
   timezone: string,
   entries: StandupEntry[],
-  missedUsers: Array<{ userId: string; userName: string }>
+  missedUsers: Array<{ userId: string; userName: string }>,
+  deadlineText?: string | null
 ): (Block | KnownBlock)[] {
-  const blocks: (Block | KnownBlock)[] = [...buildStandupHeaderBlocks(date, timezone)];
+  const blocks: (Block | KnownBlock)[] = [
+    ...buildStandupHeaderBlocks(date, timezone, deadlineText),
+  ];
 
   entries.forEach((entry) => {
     blocks.push(...buildEntryBlock(entry));

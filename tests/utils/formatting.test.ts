@@ -8,13 +8,24 @@ import {
 
 describe('formatting utilities', () => {
   describe('buildStandupHeaderBlocks', () => {
-    it('should create header blocks with date and timezone', () => {
-      const blocks = buildStandupHeaderBlocks('2024-03-15', 'Asia/Kolkata');
+    it('should create header blocks with date, timezone, and deadline', () => {
+      const blocks = buildStandupHeaderBlocks(
+        '2024-03-15',
+        'Asia/Kolkata',
+        'March 15, 2024 at 09:45 AM IST'
+      );
 
       expect(blocks).toHaveLength(3);
       expect(blocks[0].type).toBe('header');
       expect(blocks[1].type).toBe('context');
       expect(blocks[2].type).toBe('divider');
+      expect(blocks[1]).toMatchObject({
+        elements: [
+          {
+            text: expect.stringContaining('*Deadline:* March 15, 2024 at 09:45 AM IST'),
+          },
+        ],
+      });
     });
   });
 
@@ -74,10 +85,22 @@ describe('formatting utilities', () => {
         },
       ];
 
-      const blocks = buildCompleteStandupBlocks('2024-03-15', 'Asia/Kolkata', entries, []);
+      const blocks = buildCompleteStandupBlocks(
+        '2024-03-15',
+        'Asia/Kolkata',
+        entries,
+        [],
+        'March 15, 2024 at 09:45 AM IST'
+      );
 
       expect(blocks.length).toBeGreaterThan(3);
+      expect(blocks[1]).toMatchObject({
+        elements: [
+          {
+            text: expect.stringContaining('*Deadline:* March 15, 2024 at 09:45 AM IST'),
+          },
+        ],
+      });
     });
   });
 });
-

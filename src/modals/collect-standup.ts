@@ -6,15 +6,17 @@ import { buildStandupCollectionModal } from '../utils/formatting.js';
 import { openModal } from '../services/slack.js';
 import { prisma } from '../db/prismaClient.js';
 
+export const DAILY_FORM_ACK_PREFIX = 'Thank you, buddy!';
+
 export function buildSubmissionConfirmationText(
   status: SubmissionStatus,
   deadlineText: string
 ): string {
   if (status === SUBMISSION_STATUS.ON_TIME) {
-    return '✅ Thank you, buddy! Your stand-up has been submitted successfully.';
+    return `${DAILY_FORM_ACK_PREFIX} Your stand-up has been submitted successfully.`;
   }
 
-  return `⏰ The submission window closed at ${deadlineText}. Your update was saved as late and will be excluded from today's summary.`;
+  return `${DAILY_FORM_ACK_PREFIX} The submission window closed at ${deadlineText}. Your update was saved as late and will be excluded from today's summary.`;
 }
 
 export async function handleOpenStandupModal({

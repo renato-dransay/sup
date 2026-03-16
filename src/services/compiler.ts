@@ -1,6 +1,7 @@
 import { WebClient } from '@slack/web-api';
 import { prisma } from '../db/prismaClient.js';
 import { logger } from '../utils/logger.js';
+import { formatDateTime } from '../utils/date.js';
 import { buildCompleteStandupBlocks, buildSummaryBlocks } from '../utils/formatting.js';
 import { postMessage, postThreadReply, getUserInfo } from './slack.js';
 import { getStandupEntries } from './collector.js';
@@ -94,11 +95,15 @@ export async function compileStandup(
     );
 
     // Post main message
+    const deadlineText = standup.deadlineAt
+      ? formatDateTime(standup.deadlineAt, standup.workspace.timezone)
+      : null;
     const blocks = buildCompleteStandupBlocks(
       standup.date,
       standup.workspace.timezone,
       entryData,
-      missedUsers
+      missedUsers,
+      deadlineText
     );
 
     const result = await postMessage(
