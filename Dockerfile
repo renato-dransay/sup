@@ -54,7 +54,9 @@ RUN addgroup -g 1001 -S nodejs && \
 # Change ownership
 RUN mkdir -p /app/data && chown -R nodejs:nodejs /app
 
-USER nodejs
+# Copy entrypoint script
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 # Expose port
 EXPOSE 3000
@@ -63,5 +65,6 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/healthz', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-CMD ["sh", "-c", "pnpm prisma migrate deploy && node dist/index.js"]
+# Run as root so entrypoint can fix volume permissions, then drop to nodejs
+ENTRYPOINT ["/app/entrypoint.sh"]
 
