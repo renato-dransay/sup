@@ -37,7 +37,7 @@ export function createApp(config: Config): AppType {
   });
 
   const client = new WebClient(config.slackBotToken);
-  const summarizer = createSummarizer(config.openAiApiKey);
+  const summarizer = createSummarizer(config.openAiApiKey, config.llmBaseUrl, config.llmModel);
 
   // Middleware for logging
   app.use(async ({ next }) => {

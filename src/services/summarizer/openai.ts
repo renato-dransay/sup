@@ -4,9 +4,11 @@ import { logger } from '../../utils/logger.js';
 
 export class OpenAISummarizer implements SummarizerProvider {
   private client: OpenAI;
+  private model: string;
 
-  constructor(apiKey: string) {
-    this.client = new OpenAI({ apiKey });
+  constructor(apiKey: string, baseURL?: string, model?: string) {
+    this.client = new OpenAI({ apiKey, ...(baseURL && { baseURL }) });
+    this.model = model || 'gpt-4o';
   }
 
   async generateSummary(
@@ -47,7 +49,7 @@ ACTION_ITEMS:
 Keep it concise and under 2000 characters total.`;
 
       const response = await this.client.chat.completions.create({
-        model: 'gpt-4o',
+        model: this.model,
         messages: [
           {
             role: 'system',
@@ -83,11 +85,11 @@ Keep it concise and under 2000 characters total.`;
   }
 }
 
-export function createSummarizer(apiKey?: string): SummarizerProvider | null {
+export function createSummarizer(apiKey?: string, baseURL?: string, model?: string): SummarizerProvider | null {
   if (!apiKey) {
     logger.warn('OpenAI API key not provided, summaries will be disabled');
     return null;
   }
 
-  return new OpenAISummarizer(apiKey);
+  return new OpenAISummarizer(apiKey, baseURL, model);
 }

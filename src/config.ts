@@ -5,6 +5,8 @@ const configSchema = z.object({
   slackAppToken: z.string().optional(), // Optional for HTTP mode
   slackSigningSecret: z.string().min(1, 'SLACK_SIGNING_SECRET is required'),
   openAiApiKey: z.string().optional(),
+  llmBaseUrl: z.string().optional(),
+  llmModel: z.string().optional(),
   databaseUrl: z.string().default('file:./dev.db'),
   redisUrl: z.string().optional(),
   port: z.coerce.number().default(3000),
@@ -23,6 +25,8 @@ export function loadConfig(): Config {
     slackAppToken: process.env.SLACK_APP_TOKEN,
     slackSigningSecret: process.env.SLACK_SIGNING_SECRET,
     openAiApiKey: process.env.OPENAI_API_KEY,
+    llmBaseUrl: process.env.LLM_BASE_URL,
+    llmModel: process.env.LLM_MODEL,
     databaseUrl: process.env.DATABASE_URL,
     redisUrl: process.env.REDIS_URL,
     port: process.env.PORT,
