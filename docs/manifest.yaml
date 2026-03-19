@@ -1,40 +1,56 @@
 display_information:
-  name: Stand-up Bot
+  name: SUP Buddy
   description: Daily stand-up collection, compilation, and AI summaries for your team
-  background_color: '#2c3e50'
+  background_color: "#2c3e50"
   long_description: |-
-    Stand-up Bot automates your team's daily stand-ups by:
+    SUP Buddy automates your team's daily stand-ups by:
     - Collecting updates via DM at scheduled times
     - Compiling and posting to your chosen channel
     - Generating AI-powered summaries (optional)
     - Supporting timezone-aware scheduling
     - Allowing user opt-in/opt-out
-
 features:
   bot_user:
-    display_name: Stand-up Bot
+    display_name: SUP Buddy
     always_online: true
   slash_commands:
     - command: /standup
+      url: https://sup-production.up.railway.app/slack/events
       description: Show help and available commands
-      usage_hint: '[init|today|summary|config|optin|optout|status]'
+      usage_hint: "[init|today|summary|recompile|config|optin|optout|status]"
+      should_escape: false
     - command: /standup-init
+      url: https://sup-production.up.railway.app/slack/events
       description: Initialize stand-up configuration
+      should_escape: false
     - command: /standup-today
+      url: https://sup-production.up.railway.app/slack/events
       description: Run stand-up collection now
+      should_escape: false
     - command: /standup-summary
+      url: https://sup-production.up.railway.app/slack/events
       description: Generate AI summary of today's stand-up
+      should_escape: false
     - command: /standup-recompile
+      url: https://sup-production.up.railway.app/slack/events
       description: Update stand-up message with late submissions
+      should_escape: false
     - command: /standup-config
+      url: https://sup-production.up.railway.app/slack/events
       description: Update stand-up configuration
+      should_escape: false
     - command: /standup-optin
+      url: https://sup-production.up.railway.app/slack/events
       description: Opt in to daily stand-ups
+      should_escape: false
     - command: /standup-optout
+      url: https://sup-production.up.railway.app/slack/events
       description: Opt out of daily stand-ups
+      should_escape: false
     - command: /standup-status
+      url: https://sup-production.up.railway.app/slack/events
       description: View current stand-up configuration
-
+      should_escape: false
 oauth_config:
   scopes:
     bot:
@@ -47,15 +63,14 @@ oauth_config:
       - im:history
       - im:write
       - users:read
-
 settings:
   event_subscriptions:
-    request_url: https://YOUR-DOMAIN.com/slack/events
+    request_url: https://sup-production.up.railway.app/slack/events
     bot_events:
       - app_mention
   interactivity:
     is_enabled: true
-    request_url: https://YOUR-DOMAIN.com/slack/events
+    request_url: https://sup-production.up.railway.app/slack/events
   org_deploy_enabled: false
   socket_mode_enabled: false
   token_rotation_enabled: false
