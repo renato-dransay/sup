@@ -47,7 +47,7 @@ ACTION_ITEMS:
 Keep it concise and under 2000 characters total.`;
 
       const response = await this.client.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o',
         messages: [
           {
             role: 'system',
