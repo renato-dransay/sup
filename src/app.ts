@@ -10,6 +10,7 @@ import { createSummarizer } from './services/summarizer/openai.js';
 import { handleStandupInit } from './commands/standup-init.js';
 import { createStandupTodayHandler } from './commands/standup-today.js';
 import { createStandupSummaryHandler } from './commands/standup-summary.js';
+import { createStandupRecompileHandler } from './commands/standup-recompile.js';
 import { handleStandupConfig } from './commands/standup-config.js';
 import { handleStandupOptIn } from './commands/standup-optin.js';
 import { handleStandupOptOut } from './commands/standup-optout.js';
@@ -60,6 +61,7 @@ export function createApp(config: Config): AppType {
             '• `/standup init` - Set up stand-ups\n' +
             '• `/standup today` - Run stand-up now\n' +
             '• `/standup summary` - Generate summary\n' +
+            '• `/standup recompile` - Update message with late submissions\n' +
             '• `/standup config` - Update config\n' +
             '• `/standup optin` - Opt in\n' +
             '• `/standup optout` - Opt out\n' +
@@ -79,6 +81,7 @@ export function createApp(config: Config): AppType {
   app.command('/standup-init', handleStandupInit);
   app.command('/standup-today', createStandupTodayHandler(summarizer, config.collectionWindowMin));
   app.command('/standup-summary', createStandupSummaryHandler(summarizer));
+  app.command('/standup-recompile', createStandupRecompileHandler());
   app.command('/standup-config', handleStandupConfig);
   app.command('/standup-optin', handleStandupOptIn);
   app.command('/standup-optout', handleStandupOptOut);

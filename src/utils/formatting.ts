@@ -139,6 +139,54 @@ export function buildCompleteStandupBlocks(
   return blocks;
 }
 
+export function buildLateSubmissionsSection(lateEntries: StandupEntry[]): (Block | KnownBlock)[] {
+  if (lateEntries.length === 0) return [];
+
+  const blocks: (Block | KnownBlock)[] = [
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: '*🕐 Late Submissions*',
+      },
+    },
+    {
+      type: 'divider',
+    },
+  ];
+
+  lateEntries.forEach((entry) => {
+    blocks.push(...buildEntryBlock(entry));
+  });
+
+  return blocks;
+}
+
+export function buildCompleteStandupBlocksGrouped(
+  date: string,
+  timezone: string,
+  onTimeEntries: StandupEntry[],
+  lateEntries: StandupEntry[],
+  missedUsers: Array<{ userId: string; userName: string }>,
+  deadlineText?: string | null
+): (Block | KnownBlock)[] {
+  const blocks: (Block | KnownBlock)[] = [
+    ...buildStandupHeaderBlocks(date, timezone, deadlineText),
+  ];
+
+  onTimeEntries.forEach((entry) => {
+    blocks.push(...buildEntryBlock(entry));
+  });
+
+  blocks.push(...buildLateSubmissionsSection(lateEntries));
+
+  if (missedUsers.length > 0) {
+    blocks.push(...buildMissedSection(missedUsers));
+  }
+
+  return blocks;
+}
+
 export function buildSummaryBlocks(
   highlights: string,
   blockers: string,

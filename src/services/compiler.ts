@@ -2,8 +2,12 @@ import { WebClient } from '@slack/web-api';
 import { prisma } from '../db/prismaClient.js';
 import { logger } from '../utils/logger.js';
 import { formatDateTime } from '../utils/date.js';
-import { buildCompleteStandupBlocks, buildSummaryBlocks } from '../utils/formatting.js';
-import { postMessage, postThreadReply, getUserInfo } from './slack.js';
+import {
+  buildCompleteStandupBlocks,
+  buildCompleteStandupBlocksGrouped,
+  buildSummaryBlocks,
+} from '../utils/formatting.js';
+import { postMessage, postThreadReply, updateMessage, getUserInfo } from './slack.js';
 import { getStandupEntries } from './collector.js';
 import { getOptedInUsers } from './users.js';
 import { SummarizerProvider } from './summarizer/provider.js';
@@ -250,6 +254,121 @@ export async function regenerateSummary(
     );
   } catch (error) {
     logger.error({ error, workspaceId, date }, 'Failed to regenerate summary');
+    throw error;
+  }
+}
+
+export async function recompileStandup(
+  client: WebClient,
+  workspaceId: string,
+  date: string
+): Promise<void> {
+  try {
+    const standup = await prisma.standup.findUnique({
+      where: {
+        workspaceId_date: {
+          workspaceId,
+          date,
+        },
+      },
+      include: { workspace: true },
+    });
+
+    if (!standup || !standup.messageTs) {
+      throw new Error('Stand-up not found or not compiled yet');
+    }
+
+    const entries = await getStandupEntries(standup.id);
+
+    if (entries.length === 0) {
+      throw new Error('No entries found to recompile');
+    }
+
+    const { onTimeEntries, lateEntries } = filterCompilableEntries(entries);
+
+    // Resolve user names for all entries
+    const resolveEntryData = async (entryList: typeof entries) =>
+      Promise.all(
+        entryList.map(async (entry) => {
+          try {
+            const userInfo = await getUserInfo(client, entry.userId);
+            return {
+              userId: entry.userId,
+              userName: userInfo?.real_name || userInfo?.name || 'Unknown',
+              yesterday: entry.yesterday,
+              today: entry.today,
+              blockers: entry.blockers || undefined,
+              notes: entry.notes || undefined,
+            };
+          } catch (error) {
+            logger.error({ error, userId: entry.userId }, 'Failed to get user info');
+            return {
+              userId: entry.userId,
+              userName: 'Unknown',
+              yesterday: entry.yesterday,
+              today: entry.today,
+              blockers: entry.blockers || undefined,
+            };
+          }
+        })
+      );
+
+    const onTimeData = await resolveEntryData(onTimeEntries);
+    const lateData = await resolveEntryData(lateEntries);
+
+    // Compute updated missed list: opted-in users minus ALL submitters
+    const optedInUsers = await getOptedInUsers(standup.workspaceId);
+    const allSubmittedUserIds = new Set(entries.map((e) => e.userId));
+    const missedUserIds = optedInUsers.filter((id) => !allSubmittedUserIds.has(id));
+
+    const missedUsers = await Promise.all(
+      missedUserIds.map(async (userId) => {
+        try {
+          const userInfo = await getUserInfo(client, userId);
+          return {
+            userId,
+            userName: userInfo?.real_name || userInfo?.name || 'Unknown',
+          };
+        } catch (error) {
+          logger.error({ error, userId }, 'Failed to get missed user info');
+          return { userId, userName: 'Unknown' };
+        }
+      })
+    );
+
+    const deadlineText = standup.deadlineAt
+      ? formatDateTime(standup.deadlineAt, standup.workspace.timezone)
+      : null;
+
+    const blocks = buildCompleteStandupBlocksGrouped(
+      standup.date,
+      standup.workspace.timezone,
+      onTimeData,
+      lateData,
+      missedUsers,
+      deadlineText
+    );
+
+    await updateMessage(
+      client,
+      standup.channelId,
+      standup.messageTs,
+      blocks,
+      `Stand-up for ${standup.date}`
+    );
+
+    logger.info(
+      {
+        workspaceId,
+        date,
+        onTimeCount: onTimeData.length,
+        lateCount: lateData.length,
+        missedCount: missedUsers.length,
+      },
+      'Stand-up recompiled'
+    );
+  } catch (error) {
+    logger.error({ error, workspaceId, date }, 'Failed to recompile stand-up');
     throw error;
   }
 }

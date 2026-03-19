@@ -66,6 +66,24 @@ export async function postMessage(
   });
 }
 
+export async function updateMessage(
+  client: WebClient,
+  channelId: string,
+  messageTs: string,
+  blocks: unknown[],
+  text?: string
+) {
+  return retryWithBackoff(async () => {
+    return await client.chat.update({
+      channel: channelId,
+      ts: messageTs,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
+      blocks: blocks as any,
+      text: text || 'Stand-up update',
+    });
+  });
+}
+
 export async function postThreadReply(
   client: WebClient,
   channelId: string,

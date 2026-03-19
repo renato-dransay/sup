@@ -24,6 +24,8 @@ features:
       description: Run stand-up collection now
     - command: /standup-summary
       description: Generate AI summary of today's stand-up
+    - command: /standup-recompile
+      description: Update stand-up message with late submissions
     - command: /standup-config
       description: Update stand-up configuration
     - command: /standup-optin
