@@ -2,7 +2,7 @@ import { AllMiddlewareArgs, SlackViewMiddlewareArgs, SlackActionMiddlewareArgs }
 import { logger } from '../utils/logger.js';
 import { saveEntry, SUBMISSION_STATUS, SubmissionStatus } from '../services/collector.js';
 import { formatDateTime } from '../utils/date.js';
-import { buildStandupCollectionModal } from '../utils/formatting.js';
+import { buildStandupCollectionModal, richTextToMrkdwn } from '../utils/formatting.js';
 import { openModal } from '../services/slack.js';
 import { prisma } from '../db/prismaClient.js';
 
@@ -82,10 +82,24 @@ export async function handleStandupSubmission({
     await ack();
 
     const values = view.state.values;
-    const yesterday = values.yesterday_block.yesterday_input.value as string;
-    const today = values.today_block.today_input.value as string;
-    const blockers = (values.blockers_block.blockers_input.value as string) || undefined;
-    const notes = (values.notes_block?.notes_input?.value as string) || undefined;
+    const getRichText = (blockId: string, actionId: string) => {
+      const block = values[blockId];
+      if (!block) return undefined;
+      const action = block[actionId];
+      if (!action) return undefined;
+      return (action as unknown as Record<string, unknown>).rich_text_value as
+        | Parameters<typeof richTextToMrkdwn>[0]
+        | undefined;
+    };
+
+    const yesterdayRt = getRichText('yesterday_block', 'yesterday_input');
+    const todayRt = getRichText('today_block', 'today_input');
+    const yesterday = yesterdayRt ? richTextToMrkdwn(yesterdayRt) : '';
+    const today = todayRt ? richTextToMrkdwn(todayRt) : '';
+    const blockersRt = getRichText('blockers_block', 'blockers_input');
+    const blockers = blockersRt ? richTextToMrkdwn(blockersRt) || undefined : undefined;
+    const notesRt = getRichText('notes_block', 'notes_input');
+    const notes = notesRt ? richTextToMrkdwn(notesRt) || undefined : undefined;
 
     const metadata = JSON.parse(view.private_metadata || '{}') as { standupId?: string };
     const standupId = metadata.standupId;

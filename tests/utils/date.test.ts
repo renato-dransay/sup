@@ -34,7 +34,7 @@ describe('date utilities', () => {
   describe('buildCron', () => {
     it('should build cron expression', () => {
       const cron = buildCron(9, 30);
-      expect(cron).toBe('30 9 * * *');
+      expect(cron).toBe('30 9 * * 1-5');
     });
   });
 

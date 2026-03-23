@@ -1,5 +1,82 @@
 import { Block, KnownBlock } from '@slack/web-api';
 
+interface RichTextElement {
+  type: string;
+  text?: string;
+  user_id?: string;
+  channel_id?: string;
+  url?: string;
+  name?: string;
+  style?: {
+    bold?: boolean;
+    italic?: boolean;
+    strike?: boolean;
+    code?: boolean;
+  };
+  elements?: RichTextElement[];
+}
+
+interface RichTextBlock {
+  type: 'rich_text';
+  elements: RichTextElement[];
+}
+
+export function richTextToMrkdwn(richText: RichTextBlock): string {
+  return richText.elements.map(renderSection).join('\n');
+}
+
+function renderSection(section: RichTextElement): string {
+  if (section.type === 'rich_text_list') {
+    const style = section.style as unknown as string;
+    return (section.elements ?? [])
+      .map((item, i) => {
+        const prefix = style === 'ordered' ? `${i + 1}. ` : '• ';
+        return prefix + renderSection(item);
+      })
+      .join('\n');
+  }
+
+  if (section.type === 'rich_text_preformatted') {
+    const inner = (section.elements ?? []).map(renderElement).join('');
+    return '```\n' + inner + '\n```';
+  }
+
+  if (section.type === 'rich_text_quote') {
+    const inner = (section.elements ?? []).map(renderElement).join('');
+    return inner
+      .split('\n')
+      .map((line) => '> ' + line)
+      .join('\n');
+  }
+
+  // rich_text_section and fallback
+  return (section.elements ?? []).map(renderElement).join('');
+}
+
+function renderElement(el: RichTextElement): string {
+  if (el.type === 'user') {
+    return `<@${el.user_id}>`;
+  }
+  if (el.type === 'channel') {
+    return `<#${el.channel_id}>`;
+  }
+  if (el.type === 'link') {
+    return el.text && el.text !== el.url ? `<${el.url}|${el.text}>` : `<${el.url}>`;
+  }
+  if (el.type === 'emoji') {
+    return `:${el.name}:`;
+  }
+  if (el.type === 'text') {
+    let text = el.text ?? '';
+    if (el.style?.code) text = '`' + text + '`';
+    if (el.style?.bold) text = '*' + text + '*';
+    if (el.style?.italic) text = '_' + text + '_';
+    if (el.style?.strike) text = '~' + text + '~';
+    return text;
+  }
+  return el.text ?? '';
+}
+
 export interface StandupEntry {
   userId: string;
   userName: string;
@@ -374,9 +451,8 @@ export function buildStandupCollectionModal(): {
         type: 'input',
         block_id: 'yesterday_block',
         element: {
-          type: 'plain_text_input',
+          type: 'rich_text_input',
           action_id: 'yesterday_input',
-          multiline: true,
           placeholder: {
             type: 'plain_text',
             text: 'What did you achieve yesterday?',
@@ -391,9 +467,8 @@ export function buildStandupCollectionModal(): {
         type: 'input',
         block_id: 'today_block',
         element: {
-          type: 'plain_text_input',
+          type: 'rich_text_input',
           action_id: 'today_input',
-          multiline: true,
           placeholder: {
             type: 'plain_text',
             text: 'What do you plan to achieve today?',
@@ -408,9 +483,8 @@ export function buildStandupCollectionModal(): {
         type: 'input',
         block_id: 'blockers_block',
         element: {
-          type: 'plain_text_input',
+          type: 'rich_text_input',
           action_id: 'blockers_input',
-          multiline: true,
           placeholder: {
             type: 'plain_text',
             text: 'Any Blockers or Risks?',
@@ -426,9 +500,8 @@ export function buildStandupCollectionModal(): {
         type: 'input',
         block_id: 'notes_block',
         element: {
-          type: 'plain_text_input',
+          type: 'rich_text_input',
           action_id: 'notes_input',
-          multiline: true,
           placeholder: {
             type: 'plain_text',
             text: 'Additional Notes',
