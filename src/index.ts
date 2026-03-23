@@ -5,6 +5,7 @@ import { loadConfig } from './config.js';
 import { logger } from './utils/logger.js';
 import { connectDatabase, disconnectDatabase } from './db/prismaClient.js';
 import { registerHealthRoutes } from './routes/health.js';
+import { registerApiRoutes } from './routes/responses.js';
 import { createApp } from './app.js';
 import { scheduleWorkspaceJobs, stopAllJobs } from './services/scheduler.js';
 import { createSummarizer } from './services/summarizer/openai.js';
@@ -49,6 +50,12 @@ async function main() {
 
     // Register health routes
     registerHealthRoutes(fastify);
+
+    // Register API routes
+    if (config.apiKey) {
+      registerApiRoutes(fastify, config.apiKey);
+      logger.info('API responses endpoint enabled');
+    }
 
     // Register Slack event endpoints
     fastify.post('/slack/events', async (request, reply) => {

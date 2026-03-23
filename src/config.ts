@@ -15,6 +15,7 @@ const configSchema = z.object({
   summaryEnabled: z.coerce.boolean().default(true),
   collectionWindowMin: z.coerce.number().default(45),
   logLevel: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).default('info'),
+  apiKey: z.string().optional(),
 });
 
 export type Config = z.infer<typeof configSchema>;
@@ -35,6 +36,7 @@ export function loadConfig(): Config {
     summaryEnabled: process.env.SUMMARY_ENABLED,
     collectionWindowMin: process.env.COLLECTION_WINDOW_MIN,
     logLevel: process.env.LOG_LEVEL,
+    apiKey: process.env.API_KEY,
   });
 
   return config;
