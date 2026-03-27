@@ -79,7 +79,7 @@ export function createApp(config: Config): AppType {
   });
 
   app.command('/standup-init', handleStandupInit);
-  app.command('/standup-today', createStandupTodayHandler(summarizer, config.collectionWindowMin));
+  app.command('/standup-today', createStandupTodayHandler(summarizer));
   app.command('/standup-summary', createStandupSummaryHandler(summarizer));
   app.command('/standup-recompile', createStandupRecompileHandler());
   app.command('/standup-config', handleStandupConfig);
@@ -97,7 +97,7 @@ export function createApp(config: Config): AppType {
   // View submissions
   app.view(
     'standup_config_modal',
-    createSetupConfigHandler(client, summarizer, config.collectionWindowMin)
+    createSetupConfigHandler(client, summarizer)
   );
   app.view('standup_collection_modal', handleStandupSubmission);
 

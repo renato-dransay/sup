@@ -7,8 +7,7 @@ import { SummarizerProvider } from '../services/summarizer/provider.js';
 import { scheduleStandupReminders } from '../services/scheduler.js';
 
 export function createStandupTodayHandler(
-  summarizer: SummarizerProvider | null,
-  collectionWindowMin: number
+  summarizer: SummarizerProvider | null
 ) {
   return async function handleStandupToday({
     command,
@@ -36,6 +35,8 @@ export function createStandupTodayHandler(
         response_type: 'ephemeral',
       });
 
+      const collectionWindowMin = workspace.collectionWindowMin;
+
       const standupId = await createStandup(
         workspace.id,
         workspace.defaultChannelId,
@@ -49,12 +50,12 @@ export function createStandupTodayHandler(
         data: { compiledAt: null },
       });
 
-      await collectFromUsers(client, workspace.id, standupId);
+      const uniqueOffsets = await collectFromUsers(client, workspace.id, standupId);
       const standup = await prisma.standup.findUnique({
         where: { id: standupId },
         select: { deadlineAt: true },
       });
-      scheduleStandupReminders(client, standupId, standup?.deadlineAt ?? null);
+      scheduleStandupReminders(client, standupId, standup?.deadlineAt ?? null, uniqueOffsets);
 
       // Schedule compilation after a short delay
       setTimeout(

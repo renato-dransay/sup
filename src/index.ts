@@ -111,7 +111,7 @@ async function main() {
     const client = new WebClient(config.slackBotToken);
     const summarizer = createSummarizer(config.openAiApiKey, config.llmBaseUrl, config.llmModel);
 
-    await scheduleWorkspaceJobs(client, summarizer, config.collectionWindowMin);
+    await scheduleWorkspaceJobs(client, summarizer);
     logger.info('Scheduler initialized');
 
     // Graceful shutdown

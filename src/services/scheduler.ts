@@ -16,10 +16,6 @@ const jobs = new Map<string, ScheduledJob>();
 const reminderTimers = new Map<string, NodeJS.Timeout[]>();
 const INSTANCE_ID = `scheduler-${Date.now()}-${Math.random().toString(36).substring(7)}`;
 
-export function getReminderOffsets(): Array<15 | 5> {
-  return [15, 5];
-}
-
 function trackReminderTimer(standupId: string, timer: NodeJS.Timeout): void {
   const existing = reminderTimers.get(standupId) || [];
   existing.push(timer);
@@ -29,14 +25,15 @@ function trackReminderTimer(standupId: string, timer: NodeJS.Timeout): void {
 export function scheduleStandupReminders(
   client: WebClient,
   standupId: string,
-  deadlineAt: Date | null
+  deadlineAt: Date | null,
+  offsets: number[]
 ): void {
   if (!deadlineAt) {
     logger.warn({ standupId }, 'Skipping reminder scheduling because deadline is missing');
     return;
   }
 
-  for (const offset of getReminderOffsets()) {
+  for (const offset of offsets) {
     const scheduledAt = new Date(deadlineAt.getTime() - offset * 60 * 1000);
     const delayMs = Math.max(0, scheduledAt.getTime() - Date.now());
 
@@ -62,14 +59,13 @@ function clearReminderTimersForStandup(standupId: string): void {
 
 export async function scheduleWorkspaceJobs(
   client: WebClient,
-  summarizer: SummarizerProvider | null,
-  collectionWindowMin: number
+  summarizer: SummarizerProvider | null
 ): Promise<void> {
   try {
     const workspaces = await prisma.workspace.findMany();
 
     for (const workspace of workspaces) {
-      await scheduleWorkspaceJob(workspace.id, client, summarizer, collectionWindowMin);
+      await scheduleWorkspaceJob(workspace.id, client, summarizer);
     }
 
     logger.info({ count: workspaces.length }, 'Scheduled jobs for workspaces');
@@ -82,8 +78,7 @@ export async function scheduleWorkspaceJobs(
 export async function scheduleWorkspaceJob(
   workspaceId: string,
   client: WebClient,
-  summarizer: SummarizerProvider | null,
-  collectionWindowMin: number
+  summarizer: SummarizerProvider | null
 ): Promise<void> {
   try {
     // Cancel existing job if any
@@ -98,6 +93,7 @@ export async function scheduleWorkspaceJob(
       return;
     }
 
+    const collectionWindowMin = workspace.collectionWindowMin;
     const lockKey = `standup-job-${workspaceId}`;
 
     // Enforce weekdays-only (Mon–Fri), regardless of what's stored in the DB
@@ -125,12 +121,12 @@ export async function scheduleWorkspaceJob(
               collectionWindowMin
             );
 
-            await collectFromUsers(client, workspaceId, standupId);
+            const uniqueOffsets = await collectFromUsers(client, workspaceId, standupId);
             const standup = await prisma.standup.findUnique({
               where: { id: standupId },
               select: { deadlineAt: true },
             });
-            scheduleStandupReminders(client, standupId, standup?.deadlineAt ?? null);
+            scheduleStandupReminders(client, standupId, standup?.deadlineAt ?? null, uniqueOffsets);
 
             logger.info({ workspaceId, standupId }, 'Collection started');
           } catch (error) {
