@@ -11,6 +11,8 @@ import {
 import { buildStandupCollectionModal } from '../utils/formatting.js';
 import { openDMChannel, openModal } from './slack.js';
 import { getOptedInUsers } from './users.js';
+import { getExcusedMemberIds } from './excuses.js';
+import { resolveUserReminderConfig } from './preferences.js';
 
 const DEFAULT_COLLECTION_WINDOW_MIN = 45;
 export const SUBMISSION_STATUS = {
@@ -89,40 +91,48 @@ export async function createStandup(
 export async function seedReminderDispatches(
   standupId: string,
   userIds: string[],
-  deadlineAt: Date
-): Promise<void> {
+  deadlineAt: Date,
+  workspaceId: string
+): Promise<number[]> {
   if (userIds.length === 0) {
-    return;
+    return [];
   }
 
-  const reminders = userIds.flatMap((userId) => {
-    const offsets = [15, 5];
-    return offsets.map((offsetMinutes) => ({
-      standupId,
-      userId,
-      offsetMinutes,
-      scheduledFor: getReminderScheduleTime(deadlineAt, offsetMinutes),
-      status: REMINDER_STATUS.PENDING,
-    }));
-  });
+  const allOffsets = new Set<number>();
 
-  for (const reminder of reminders) {
-    await prisma.reminderDispatch.upsert({
-      where: {
-        standupId_userId_offsetMinutes: {
-          standupId: reminder.standupId,
-          userId: reminder.userId,
-          offsetMinutes: reminder.offsetMinutes,
+  for (const userId of userIds) {
+    const config = await resolveUserReminderConfig(workspaceId, userId);
+
+    if (!config.enabled) continue;
+
+    for (const offsetMinutes of config.offsets) {
+      allOffsets.add(offsetMinutes);
+
+      await prisma.reminderDispatch.upsert({
+        where: {
+          standupId_userId_offsetMinutes: {
+            standupId,
+            userId,
+            offsetMinutes,
+          },
         },
-      },
-      create: reminder,
-      update: {
-        scheduledFor: reminder.scheduledFor,
-        status: REMINDER_STATUS.PENDING,
-        failureReason: null,
-      },
-    });
+        create: {
+          standupId,
+          userId,
+          offsetMinutes,
+          scheduledFor: getReminderScheduleTime(deadlineAt, offsetMinutes),
+          status: REMINDER_STATUS.PENDING,
+        },
+        update: {
+          scheduledFor: getReminderScheduleTime(deadlineAt, offsetMinutes),
+          status: REMINDER_STATUS.PENDING,
+          failureReason: null,
+        },
+      });
+    }
   }
+
+  return [...allOffsets].sort((a, b) => b - a);
 }
 
 export async function collectFromUsers(
@@ -131,7 +141,7 @@ export async function collectFromUsers(
   standupId: string,
   triggerId?: string,
   specificUserId?: string
-): Promise<void> {
+): Promise<number[]> {
   try {
     const standup = await prisma.standup.findUnique({
       where: { id: standupId },
@@ -140,24 +150,30 @@ export async function collectFromUsers(
 
     if (!standup) {
       logger.error({ workspaceId, standupId }, 'Stand-up not found while collecting from users');
-      return;
+      return [];
     }
 
     const userIds = specificUserId ? [specificUserId] : await getOptedInUsers(workspaceId);
-    await seedReminderDispatches(
+    const today = getTodayDate(standup.workspace.timezone);
+    const excusedUserIds = await getExcusedMemberIds(workspaceId, today);
+    const excusedSet = new Set(excusedUserIds);
+    const activeUserIds = userIds.filter((id) => !excusedSet.has(id));
+
+    const uniqueOffsets = await seedReminderDispatches(
       standupId,
-      userIds,
-      standup.deadlineAt ?? new Date(standup.startedAt)
+      activeUserIds,
+      standup.deadlineAt ?? new Date(standup.startedAt),
+      workspaceId
     );
 
-    logger.info({ workspaceId, standupId, userCount: userIds.length }, 'Starting collection');
+    logger.info({ workspaceId, standupId, userCount: activeUserIds.length }, 'Starting collection');
 
     const modal = buildStandupCollectionModal();
     const deadlineText = standup.deadlineAt
       ? formatDateTime(standup.deadlineAt, standup.workspace.timezone)
       : 'the collection window';
 
-    for (const userId of userIds) {
+    for (const userId of activeUserIds) {
       try {
         if (triggerId && specificUserId === userId) {
           await openModal(client, triggerId, modal);
@@ -210,6 +226,8 @@ export async function collectFromUsers(
         logger.error({ error, userId, standupId }, 'Failed to send collection request');
       }
     }
+
+    return uniqueOffsets;
   } catch (error) {
     logger.error({ error, workspaceId, standupId }, 'Failed to collect from users');
     throw error;
@@ -219,7 +237,7 @@ export async function collectFromUsers(
 export async function sendRemindersForOffset(
   client: WebClient,
   standupId: string,
-  offsetMinutes: 15 | 5
+  offsetMinutes: number
 ): Promise<void> {
   const dispatches = await prisma.reminderDispatch.findMany({
     where: {
