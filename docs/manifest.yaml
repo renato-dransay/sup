@@ -17,7 +17,7 @@ features:
     - command: /standup
       url: https://sup-production.up.railway.app/slack/events
       description: Show help and available commands
-      usage_hint: "[init|today|summary|recompile|config|optin|optout|status]"
+      usage_hint: "[init|today|summary|recompile|config|optin|optout|status|me|weekly]"
       should_escape: false
     - command: /standup-init
       url: https://sup-production.up.railway.app/slack/events
@@ -50,6 +50,15 @@ features:
     - command: /standup-status
       url: https://sup-production.up.railway.app/slack/events
       description: View current stand-up configuration
+      should_escape: false
+    - command: /standup-me
+      url: https://sup-production.up.railway.app/slack/events
+      description: Your preferences (reminders, excuses)
+      usage_hint: "[reminders|excuse [today|tomorrow|YYYY-MM-DD]|excuse cancel]"
+      should_escape: false
+    - command: /standup-weekly
+      url: https://sup-production.up.railway.app/slack/events
+      description: Your personal weekly summary
       should_escape: false
 oauth_config:
   scopes:
