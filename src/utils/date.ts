@@ -90,3 +90,25 @@ export function validateTimezone(tz: string): boolean {
     return false;
   }
 }
+
+export function parseReminderOffsets(input: string): number[] {
+  if (!input.trim()) return [];
+  const values = input
+    .split(',')
+    .map((s) => parseInt(s.trim(), 10))
+    .filter((n) => !isNaN(n));
+  const unique = [...new Set(values)];
+  return unique.sort((a, b) => b - a);
+}
+
+export function validateReminderOffsets(input: string): string | null {
+  const parsed = parseReminderOffsets(input);
+  if (parsed.length === 0) return 'At least one reminder time is required';
+  if (parsed.length > 5) return 'Maximum 5 reminder times allowed';
+  if (parsed.some((n) => n < 1 || n > 60)) return 'Each reminder must be between 1 and 60 minutes';
+  return null;
+}
+
+export function formatOffsets(offsets: number[]): string {
+  return offsets.join(',');
+}
