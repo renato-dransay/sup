@@ -16,7 +16,10 @@ model Workspace {
   defaultChannelId String
   timezone         String   @default("Asia/Kolkata")
   cron             String   @default("30 9 * * *")
-  summaryEnabled   Boolean  @default(false)
+  summaryEnabled      Boolean  @default(false)
+  collectionWindowMin Int     @default(45)
+  remindersEnabled    Boolean @default(true)
+  reminderOffsets     String  @default("15,5")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -33,6 +36,9 @@ model Member {
   optedIn     Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  preference MemberPreference?
+  excuses    Excuse[]
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
@@ -102,4 +108,30 @@ model JobLock {
   expiresAt DateTime
 
   @@index([expiresAt])
+}
+
+model MemberPreference {
+  id               String   @id @default(uuid())
+  memberId         String   @unique
+  remindersEnabled Boolean?
+  reminderOffsets  String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId])
+}
+
+model Excuse {
+  id        String   @id @default(uuid())
+  memberId  String
+  startDate String
+  endDate   String
+  reason    String?
+  createdAt DateTime @default(now())
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId, startDate, endDate])
 }
