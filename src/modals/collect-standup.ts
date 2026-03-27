@@ -5,6 +5,7 @@ import { formatDateTime } from '../utils/date.js';
 import { buildStandupCollectionModal, richTextToMrkdwn } from '../utils/formatting.js';
 import { openModal } from '../services/slack.js';
 import { prisma } from '../db/prismaClient.js';
+import { recompileStandup } from '../services/compiler.js';
 
 export const DAILY_FORM_ACK_PREFIX = 'Thank you, buddy!';
 
@@ -134,6 +135,13 @@ export async function handleStandupSubmission({
       channel: body.user.id,
       text: confirmationText,
     });
+
+    // Auto-recompile if this was a late submission and standup is already compiled
+    if (status === SUBMISSION_STATUS.LATE && standup?.compiledAt) {
+      void recompileStandup(client, standup.workspaceId, standup.date).catch((err) => {
+        logger.error({ error: err, standupId }, 'Auto-recompile failed after late submission');
+      });
+    }
 
     logger.info(
       { userId: body.user.id, standupId, submissionStatus: status },

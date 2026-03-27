@@ -6,10 +6,12 @@ import {
   buildCompleteStandupBlocks,
   buildCompleteStandupBlocksGrouped,
   buildSummaryBlocks,
+  buildExcusedSection,
 } from '../utils/formatting.js';
 import { postMessage, postThreadReply, updateMessage, getUserInfo } from './slack.js';
 import { getStandupEntries } from './collector.js';
 import { getOptedInUsers } from './users.js';
+import { getExcusedUsersWithReasons } from './excuses.js';
 import { SummarizerProvider } from './summarizer/provider.js';
 
 export function filterCompilableEntries<
@@ -98,6 +100,30 @@ export async function compileStandup(
       })
     );
 
+    // Get excused users
+    const excusedData = await getExcusedUsersWithReasons(standup.workspaceId, standup.date);
+    const excusedUserIds = new Set(excusedData.map((e) => e.userId));
+
+    // Filter excused users out of missed list
+    const actualMissedUsers = missedUsers.filter((u) => !excusedUserIds.has(u.userId));
+
+    // Get names for excused users
+    const excusedUsers = await Promise.all(
+      excusedData.map(async (e) => {
+        try {
+          const userInfo = await getUserInfo(client, e.userId);
+          return {
+            userId: e.userId,
+            userName: userInfo?.real_name || userInfo?.name || 'Unknown',
+            reason: e.reason,
+          };
+        } catch (error) {
+          logger.error({ error, userId: e.userId }, 'Failed to get excused user info');
+          return { userId: e.userId, userName: 'Unknown', reason: e.reason };
+        }
+      })
+    );
+
     // Post main message
     const deadlineText = standup.deadlineAt
       ? formatDateTime(standup.deadlineAt, standup.workspace.timezone)
@@ -106,9 +132,15 @@ export async function compileStandup(
       standup.date,
       standup.workspace.timezone,
       entryData,
-      missedUsers,
+      actualMissedUsers,
       deadlineText
     );
+
+    // Insert excused section
+    if (excusedUsers.length > 0) {
+      const excusedBlocks = buildExcusedSection(excusedUsers);
+      blocks.push(...excusedBlocks);
+    }
 
     const result = await postMessage(
       client,
@@ -336,6 +368,26 @@ export async function recompileStandup(
       })
     );
 
+    const excusedData = await getExcusedUsersWithReasons(standup.workspaceId, standup.date);
+    const excusedUserIds = new Set(excusedData.map((e) => e.userId));
+    const actualMissedUsers = missedUsers.filter((u) => !excusedUserIds.has(u.userId));
+
+    const excusedUsers = await Promise.all(
+      excusedData.map(async (e) => {
+        try {
+          const userInfo = await getUserInfo(client, e.userId);
+          return {
+            userId: e.userId,
+            userName: userInfo?.real_name || userInfo?.name || 'Unknown',
+            reason: e.reason,
+          };
+        } catch (error) {
+          logger.error({ error, userId: e.userId }, 'Failed to get excused user info');
+          return { userId: e.userId, userName: 'Unknown', reason: e.reason };
+        }
+      })
+    );
+
     const deadlineText = standup.deadlineAt
       ? formatDateTime(standup.deadlineAt, standup.workspace.timezone)
       : null;
@@ -345,9 +397,15 @@ export async function recompileStandup(
       standup.workspace.timezone,
       onTimeData,
       lateData,
-      missedUsers,
+      actualMissedUsers,
       deadlineText
     );
+
+    // Insert excused section
+    if (excusedUsers.length > 0) {
+      const excusedBlocks = buildExcusedSection(excusedUsers);
+      blocks.push(...excusedBlocks);
+    }
 
     await updateMessage(
       client,
