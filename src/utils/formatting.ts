@@ -767,7 +767,13 @@ export function buildExcuseModal(): {
 
 export function buildWeeklySummaryBlocks(
   dateRange: string,
-  entries: Array<{ date: string; dayName: string; yesterday: string; today: string; blockers?: string }>,
+  entries: Array<{
+    date: string;
+    dayName: string;
+    yesterday: string;
+    today: string;
+    blockers?: string;
+  }>,
   aiSummary?: string
 ): (Block | KnownBlock)[] {
   const blocks: (Block | KnownBlock)[] = [

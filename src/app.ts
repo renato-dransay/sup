@@ -128,22 +128,27 @@ export function createApp(config: Config): AppType {
       try {
         await deleteExcuse(excuseId);
         if (respond) {
-          await respond({ text: '✅ Excuse cancelled.', response_type: 'ephemeral', replace_original: false });
+          await respond({
+            text: '✅ Excuse cancelled.',
+            response_type: 'ephemeral',
+            replace_original: false,
+          });
         }
       } catch (error) {
         logger.error({ error, excuseId }, 'Failed to cancel excuse');
         if (respond) {
-          await respond({ text: '❌ Failed to cancel excuse.', response_type: 'ephemeral', replace_original: false });
+          await respond({
+            text: '❌ Failed to cancel excuse.',
+            response_type: 'ephemeral',
+            replace_original: false,
+          });
         }
       }
     }
   });
 
   // View submissions
-  app.view(
-    'standup_config_modal',
-    createSetupConfigHandler(client, summarizer)
-  );
+  app.view('standup_config_modal', createSetupConfigHandler(client, summarizer));
   app.view('standup_collection_modal', handleStandupSubmission);
   app.view('standup_me_reminders_modal', handleRemindersSubmission);
   app.view('standup_me_excuse_modal', handleExcuseSubmission);

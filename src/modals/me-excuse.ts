@@ -25,7 +25,8 @@ export async function handleExcuseSubmission({
     await ack();
 
     const userId = 'user' in body ? body.user.id : '';
-    const teamId = ('team' in body ? body.team?.id : undefined) || ('user' in body ? body.user.team_id : '');
+    const teamId =
+      ('team' in body ? body.team?.id : undefined) || ('user' in body ? body.user.team_id : '');
 
     if (!userId || !teamId) {
       logger.error({ body }, 'Missing user or team ID');

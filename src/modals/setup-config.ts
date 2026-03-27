@@ -2,15 +2,18 @@ import { AllMiddlewareArgs, SlackViewMiddlewareArgs } from '@slack/bolt';
 import { WebClient } from '@slack/web-api';
 import { logger } from '../utils/logger.js';
 import { prisma } from '../db/prismaClient.js';
-import { buildCron, validateTimezone, validateReminderOffsets, parseReminderOffsets, formatOffsets } from '../utils/date.js';
+import {
+  buildCron,
+  validateTimezone,
+  validateReminderOffsets,
+  parseReminderOffsets,
+  formatOffsets,
+} from '../utils/date.js';
 import { scheduleWorkspaceJob, cancelWorkspaceJob } from '../services/scheduler.js';
 import { SummarizerProvider } from '../services/summarizer/provider.js';
 import { invalidateWorkspaceCache } from '../cache/simple-cache.js';
 
-export function createSetupConfigHandler(
-  client: WebClient,
-  summarizer: SummarizerProvider | null
-) {
+export function createSetupConfigHandler(client: WebClient, summarizer: SummarizerProvider | null) {
   return async function handleSetupConfig({
     ack,
     view,
@@ -37,7 +40,8 @@ export function createSetupConfigHandler(
         return;
       }
 
-      const reminderOffsetsInput = values.reminder_offsets_block.reminder_offsets_input.value as string;
+      const reminderOffsetsInput = values.reminder_offsets_block.reminder_offsets_input
+        .value as string;
       const offsetsError = validateReminderOffsets(reminderOffsetsInput);
       if (offsetsError) {
         await ack({

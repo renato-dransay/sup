@@ -1,5 +1,4 @@
 import { prisma } from '../db/prismaClient.js';
-import { logger } from '../utils/logger.js';
 import { SummarizerProvider } from './summarizer/provider.js';
 
 export function getWeekDateRange(todayDate: string): { start: string; end: string } {
@@ -30,13 +29,15 @@ export async function getUserWeeklyEntries(
   userId: string,
   workspaceId: string,
   todayDate: string
-): Promise<Array<{
-  date: string;
-  dayName: string;
-  yesterday: string;
-  today: string;
-  blockers?: string;
-}>> {
+): Promise<
+  Array<{
+    date: string;
+    dayName: string;
+    yesterday: string;
+    today: string;
+    blockers?: string;
+  }>
+> {
   const { start, end } = getWeekDateRange(todayDate);
 
   const entries = await prisma.entry.findMany({
@@ -65,7 +66,13 @@ export async function getUserWeeklyEntries(
 }
 
 export async function generatePersonalWeeklySummary(
-  entries: Array<{ date: string; dayName: string; yesterday: string; today: string; blockers?: string }>,
+  entries: Array<{
+    date: string;
+    dayName: string;
+    yesterday: string;
+    today: string;
+    blockers?: string;
+  }>,
   summarizer: SummarizerProvider
 ): Promise<string> {
   const formatted = entries
@@ -82,7 +89,8 @@ export async function generatePersonalWeeklySummary(
     {
       userId: 'Weekly entries',
       yesterday: formatted,
-      today: 'Summarize this person\'s week based on their daily standup entries. Focus on: accomplishments, ongoing work, blockers encountered, and trajectory. Keep it concise (3-5 bullet points).',
+      today:
+        "Summarize this person's week based on their daily standup entries. Focus on: accomplishments, ongoing work, blockers encountered, and trajectory. Keep it concise (3-5 bullet points).",
     },
   ]);
 

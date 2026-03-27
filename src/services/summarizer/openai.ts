@@ -85,7 +85,11 @@ Keep it concise and under 2000 characters total.`;
   }
 }
 
-export function createSummarizer(apiKey?: string, baseURL?: string, model?: string): SummarizerProvider | null {
+export function createSummarizer(
+  apiKey?: string,
+  baseURL?: string,
+  model?: string
+): SummarizerProvider | null {
   if (!apiKey) {
     logger.warn('OpenAI API key not provided, summaries will be disabled');
     return null;

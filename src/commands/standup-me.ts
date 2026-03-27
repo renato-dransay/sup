@@ -4,7 +4,12 @@ import { logger } from '../utils/logger.js';
 import { prisma } from '../db/prismaClient.js';
 import { buildMeHubBlocks, buildRemindersModal, buildExcuseModal } from '../utils/formatting.js';
 import { resolveReminderConfig } from '../services/preferences.js';
-import { createExcuse, parseDateArg, getActiveExcuses, getMemberIdByUserId } from '../services/excuses.js';
+import {
+  createExcuse,
+  parseDateArg,
+  getActiveExcuses,
+  getMemberIdByUserId,
+} from '../services/excuses.js';
 import { openModal } from '../services/slack.js';
 
 export async function handleStandupMe({
@@ -69,16 +74,28 @@ async function handleHub(
   const config = resolveReminderConfig(workspace, member?.preference ?? null);
   const offsetsLabel = config.offsets.length > 0 ? config.offsets.join(', ') + ' min' : 'None';
 
-  const remindersLabel = member?.preference?.remindersEnabled === null || member?.preference?.remindersEnabled === undefined
-    ? `Using workspace default (${config.enabled ? 'On' : 'Off'})`
-    : config.enabled ? 'On' : 'Off';
+  const remindersLabel =
+    member?.preference?.remindersEnabled === null ||
+    member?.preference?.remindersEnabled === undefined
+      ? `Using workspace default (${config.enabled ? 'On' : 'Off'})`
+      : config.enabled
+        ? 'On'
+        : 'Off';
 
   const memberId = member?.id;
-  const today = new Intl.DateTimeFormat('en-CA', { timeZone: workspace.timezone }).format(new Date());
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: workspace.timezone }).format(
+    new Date()
+  );
   const excuses = memberId ? await getActiveExcuses(memberId, today) : [];
-  const excusesLabel = excuses.length > 0
-    ? excuses.map((e) => `${e.startDate}${e.startDate !== e.endDate ? ` – ${e.endDate}` : ''}${e.reason ? ` (${e.reason})` : ''}`).join(', ')
-    : 'No upcoming excuses';
+  const excusesLabel =
+    excuses.length > 0
+      ? excuses
+          .map(
+            (e) =>
+              `${e.startDate}${e.startDate !== e.endDate ? ` – ${e.endDate}` : ''}${e.reason ? ` (${e.reason})` : ''}`
+          )
+          .join(', ')
+      : 'No upcoming excuses';
 
   const blocks = buildMeHubBlocks({ remindersLabel, offsetsLabel, excusesLabel });
 
@@ -115,7 +132,10 @@ async function handleExcuseSubcommand(
   workspace: { id: string; timezone: string },
   args: string
 ): Promise<void> {
-  const parts = args.replace(/^excuse\s*/, '').trim().split(/\s+/);
+  const parts = args
+    .replace(/^excuse\s*/, '')
+    .trim()
+    .split(/\s+/);
   const firstArg = parts[0] || '';
 
   // No args → open modal
@@ -129,15 +149,23 @@ async function handleExcuseSubcommand(
   if (firstArg === 'cancel') {
     const memberId = await getMemberIdByUserId(workspace.id, command.user_id);
     if (!memberId) {
-      await respond({ text: '❌ You are not a member of this workspace. Run `/standup optin` first.', response_type: 'ephemeral' });
+      await respond({
+        text: '❌ You are not a member of this workspace. Run `/standup optin` first.',
+        response_type: 'ephemeral',
+      });
       return;
     }
 
-    const today = new Intl.DateTimeFormat('en-CA', { timeZone: workspace.timezone }).format(new Date());
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: workspace.timezone }).format(
+      new Date()
+    );
     const excuses = await getActiveExcuses(memberId, today);
 
     if (excuses.length === 0) {
-      await respond({ text: 'No active or upcoming excuses to cancel.', response_type: 'ephemeral' });
+      await respond({
+        text: 'No active or upcoming excuses to cancel.',
+        response_type: 'ephemeral',
+      });
       return;
     }
 

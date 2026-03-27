@@ -2,7 +2,11 @@ import { SlackCommandMiddlewareArgs, AllMiddlewareArgs } from '@slack/bolt';
 import { logger } from '../utils/logger.js';
 import { prisma } from '../db/prismaClient.js';
 import { getTodayDate } from '../utils/date.js';
-import { getUserWeeklyEntries, generatePersonalWeeklySummary, getWeekDateRange } from '../services/weekly-summary.js';
+import {
+  getUserWeeklyEntries,
+  generatePersonalWeeklySummary,
+  getWeekDateRange,
+} from '../services/weekly-summary.js';
 import { buildWeeklySummaryBlocks } from '../utils/formatting.js';
 import { SummarizerProvider } from '../services/summarizer/provider.js';
 
@@ -49,7 +53,10 @@ export function createStandupWeeklyHandler(summarizer: SummarizerProvider | null
         response_type: 'ephemeral',
       });
 
-      logger.info({ userId: command.user_id, entryCount: entries.length }, 'Weekly summary generated');
+      logger.info(
+        { userId: command.user_id, entryCount: entries.length },
+        'Weekly summary generated'
+      );
     } catch (error) {
       logger.error({ error, userId: command.user_id }, 'Failed to generate weekly summary');
       await respond({

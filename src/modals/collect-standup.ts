@@ -138,9 +138,12 @@ export async function handleStandupSubmission({
 
     // Auto-recompile if this was a late submission and standup is already compiled
     if (status === SUBMISSION_STATUS.LATE && standup?.compiledAt) {
-      void recompileStandup(client, standup.workspaceId, standup.date).catch((err) => {
-        logger.error({ error: err, standupId }, 'Auto-recompile failed after late submission');
-      });
+      void recompileStandup(client, standup.workspaceId, standup.date).catch(
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        (err: unknown) => {
+          logger.error({ error: err, standupId }, 'Auto-recompile failed after late submission');
+        }
+      );
     }
 
     logger.info(

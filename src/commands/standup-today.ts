@@ -6,9 +6,7 @@ import { compileStandup } from '../services/compiler.js';
 import { SummarizerProvider } from '../services/summarizer/provider.js';
 import { scheduleStandupReminders } from '../services/scheduler.js';
 
-export function createStandupTodayHandler(
-  summarizer: SummarizerProvider | null
-) {
+export function createStandupTodayHandler(summarizer: SummarizerProvider | null) {
   return async function handleStandupToday({
     command,
     ack,

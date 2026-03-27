@@ -11,7 +11,8 @@ export async function handleRemindersSubmission({
 }: SlackViewMiddlewareArgs & AllMiddlewareArgs): Promise<void> {
   try {
     const values = view.state.values;
-    const enabledValue = values.reminders_enabled_block.reminders_enabled_select.selected_option?.value;
+    const enabledValue =
+      values.reminders_enabled_block.reminders_enabled_select.selected_option?.value;
     const offsetsInput = values.reminder_offsets_block?.reminder_offsets_input?.value || '';
 
     // Validate offsets if provided
@@ -29,7 +30,8 @@ export async function handleRemindersSubmission({
     await ack();
 
     const userId = 'user' in body ? body.user.id : '';
-    const teamId = ('team' in body ? body.team?.id : undefined) || ('user' in body ? body.user.team_id : '');
+    const teamId =
+      ('team' in body ? body.team?.id : undefined) || ('user' in body ? body.user.team_id : '');
 
     if (!userId || !teamId) {
       logger.error({ body }, 'Missing user or team ID');
@@ -48,8 +50,7 @@ export async function handleRemindersSubmission({
       return;
     }
 
-    const remindersEnabled =
-      enabledValue === 'default' ? null : enabledValue === 'on';
+    const remindersEnabled = enabledValue === 'default' ? null : enabledValue === 'on';
     const reminderOffsets = offsetsInput.trim()
       ? formatOffsets(parseReminderOffsets(offsetsInput))
       : null;
