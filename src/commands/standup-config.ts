@@ -34,6 +34,9 @@ export async function handleStandupConfig({
       hour: cronParsed?.hour,
       minute: cronParsed?.minute,
       summaryEnabled: workspace.summaryEnabled,
+      collectionWindowMin: workspace.collectionWindowMin,
+      remindersEnabled: workspace.remindersEnabled,
+      reminderOffsets: workspace.reminderOffsets,
     });
 
     await openModal(client, command.trigger_id, modal);

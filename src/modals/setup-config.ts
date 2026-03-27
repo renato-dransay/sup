@@ -2,15 +2,14 @@ import { AllMiddlewareArgs, SlackViewMiddlewareArgs } from '@slack/bolt';
 import { WebClient } from '@slack/web-api';
 import { logger } from '../utils/logger.js';
 import { prisma } from '../db/prismaClient.js';
-import { buildCron, validateTimezone } from '../utils/date.js';
+import { buildCron, validateTimezone, validateReminderOffsets, parseReminderOffsets, formatOffsets } from '../utils/date.js';
 import { scheduleWorkspaceJob, cancelWorkspaceJob } from '../services/scheduler.js';
 import { SummarizerProvider } from '../services/summarizer/provider.js';
 import { invalidateWorkspaceCache } from '../cache/simple-cache.js';
 
 export function createSetupConfigHandler(
   client: WebClient,
-  summarizer: SummarizerProvider | null,
-  collectionWindowMin: number
+  summarizer: SummarizerProvider | null
 ) {
   return async function handleSetupConfig({
     ack,
@@ -25,6 +24,34 @@ export function createSetupConfigHandler(
       const timezone = values.timezone_block.timezone_input.value as string;
       const summaryEnabled =
         (values.summary_block.summary_checkbox.selected_options?.length ?? 0) > 0;
+
+      const windowInput = values.window_block.window_input.value as string;
+      const collectionWindowMin = parseInt(windowInput, 10);
+      if (isNaN(collectionWindowMin) || collectionWindowMin < 10 || collectionWindowMin > 120) {
+        await ack({
+          response_action: 'errors',
+          errors: {
+            window_block: 'Response window must be between 10 and 120 minutes',
+          },
+        });
+        return;
+      }
+
+      const reminderOffsetsInput = values.reminder_offsets_block.reminder_offsets_input.value as string;
+      const offsetsError = validateReminderOffsets(reminderOffsetsInput);
+      if (offsetsError) {
+        await ack({
+          response_action: 'errors',
+          errors: {
+            reminder_offsets_block: offsetsError,
+          },
+        });
+        return;
+      }
+      const reminderOffsets = formatOffsets(parseReminderOffsets(reminderOffsetsInput));
+
+      const remindersEnabled =
+        (values.reminders_block.reminders_checkbox.selected_options?.length ?? 0) > 0;
 
       // Validate time format
       const timeMatch = timeInput.match(/^(\d{1,2}):(\d{2})$/);
@@ -83,12 +110,18 @@ export function createSetupConfigHandler(
           timezone,
           cron,
           summaryEnabled,
+          collectionWindowMin,
+          remindersEnabled,
+          reminderOffsets,
         },
         update: {
           defaultChannelId: channelId,
           timezone,
           cron,
           summaryEnabled,
+          collectionWindowMin,
+          remindersEnabled,
+          reminderOffsets,
         },
       });
 
@@ -97,7 +130,7 @@ export function createSetupConfigHandler(
 
       // Reschedule the job
       cancelWorkspaceJob(workspace.id);
-      await scheduleWorkspaceJob(workspace.id, client, summarizer, collectionWindowMin);
+      await scheduleWorkspaceJob(workspace.id, client, summarizer);
 
       // Send confirmation message
       try {
@@ -106,6 +139,8 @@ export function createSetupConfigHandler(
           text:
             `✅ Stand-up bot configured successfully!\n\n` +
             `Stand-ups will be collected at *${timeInput}* (${timezone}) and posted here.\n` +
+            `Response Window: ${collectionWindowMin} minutes\n` +
+            `Reminders: ${remindersEnabled ? `Enabled (${reminderOffsets} min before deadline)` : 'Disabled'}\n` +
             `AI Summary: ${summaryEnabled ? 'Enabled' : 'Disabled'}\n\n` +
             `Use \`/standup optin\` to participate and \`/standup status\` to view details.`,
         });
