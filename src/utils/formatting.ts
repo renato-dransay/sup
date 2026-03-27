@@ -194,6 +194,26 @@ export function buildMissedSection(
   ];
 }
 
+export function buildExcusedSection(
+  excusedUsers: Array<{ userId: string; userName: string; reason?: string | null }>
+): KnownBlock[] {
+  if (excusedUsers.length === 0) return [];
+
+  const lines = excusedUsers
+    .map((u) => (u.reason ? `• ${u.userName} (${u.reason})` : `• ${u.userName}`))
+    .join('\n');
+
+  return [
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*🏖 Excused*\n${lines}`,
+      },
+    },
+  ];
+}
+
 export function buildCompleteStandupBlocks(
   date: string,
   timezone: string,
@@ -308,6 +328,9 @@ export function buildConfigModal(currentConfig?: {
   hour?: number;
   minute?: number;
   summaryEnabled?: boolean;
+  collectionWindowMin?: number;
+  remindersEnabled?: boolean;
+  reminderOffsets?: string;
 }): {
   type: string;
   title: { type: string; text: string };
@@ -386,6 +409,40 @@ export function buildConfigModal(currentConfig?: {
       },
       {
         type: 'input',
+        block_id: 'window_block',
+        element: {
+          type: 'plain_text_input',
+          action_id: 'window_input',
+          placeholder: {
+            type: 'plain_text',
+            text: 'e.g., 45',
+          },
+          initial_value: String(currentConfig?.collectionWindowMin ?? 45),
+        },
+        label: {
+          type: 'plain_text',
+          text: 'Response Window (minutes, 10-120)',
+        },
+      },
+      {
+        type: 'input',
+        block_id: 'reminder_offsets_block',
+        element: {
+          type: 'plain_text_input',
+          action_id: 'reminder_offsets_input',
+          placeholder: {
+            type: 'plain_text',
+            text: 'e.g., 15,5',
+          },
+          initial_value: currentConfig?.reminderOffsets ?? '15,5',
+        },
+        label: {
+          type: 'plain_text',
+          text: 'Reminder Times (minutes before deadline, comma-separated)',
+        },
+      },
+      {
+        type: 'input',
         block_id: 'summary_block',
         element: {
           type: 'checkboxes',
@@ -414,6 +471,39 @@ export function buildConfigModal(currentConfig?: {
         label: {
           type: 'plain_text',
           text: 'Summary Settings',
+        },
+        optional: true,
+      },
+      {
+        type: 'input',
+        block_id: 'reminders_block',
+        element: {
+          type: 'checkboxes',
+          action_id: 'reminders_checkbox',
+          options: [
+            {
+              text: {
+                type: 'plain_text',
+                text: 'Enable reminders',
+              },
+              value: 'enabled',
+            },
+          ],
+          ...(currentConfig?.remindersEnabled !== false && {
+            initial_options: [
+              {
+                text: {
+                  type: 'plain_text',
+                  text: 'Enable reminders',
+                },
+                value: 'enabled',
+              },
+            ],
+          }),
+        },
+        label: {
+          type: 'plain_text',
+          text: 'Reminder Settings',
         },
         optional: true,
       },
@@ -515,4 +605,206 @@ export function buildStandupCollectionModal(): {
       },
     ],
   };
+}
+
+export function buildMeHubBlocks(config: {
+  remindersLabel: string;
+  offsetsLabel: string;
+  excusesLabel: string;
+}): (Block | KnownBlock)[] {
+  return [
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text:
+          `*👤 Your Stand-up Preferences*\n\n` +
+          `*Reminders:* ${config.remindersLabel} | *Offsets:* ${config.offsetsLabel}\n` +
+          `*Excuses:* ${config.excusesLabel}`,
+      },
+    },
+    {
+      type: 'actions',
+      elements: [
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: '🔔 Reminders' },
+          action_id: 'open_reminders_modal',
+        },
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: '🏖 Excuse' },
+          action_id: 'open_excuse_modal',
+        },
+      ],
+    },
+  ];
+}
+
+export function buildRemindersModal(current?: {
+  remindersEnabled: boolean | null;
+  reminderOffsets: string | null;
+  workspaceDefault: string;
+}): {
+  type: string;
+  title: { type: string; text: string };
+  blocks: KnownBlock[];
+  submit: { type: string; text: string };
+  callback_id: string;
+} {
+  const currentValue =
+    current?.remindersEnabled === null || current?.remindersEnabled === undefined
+      ? 'default'
+      : current?.remindersEnabled
+        ? 'on'
+        : 'off';
+
+  return {
+    type: 'modal',
+    callback_id: 'standup_me_reminders_modal',
+    title: { type: 'plain_text', text: 'Reminder Preferences' },
+    submit: { type: 'plain_text', text: 'Save' },
+    blocks: [
+      {
+        type: 'input',
+        block_id: 'reminders_enabled_block',
+        element: {
+          type: 'static_select',
+          action_id: 'reminders_enabled_select',
+          options: [
+            { text: { type: 'plain_text', text: 'Use workspace default' }, value: 'default' },
+            { text: { type: 'plain_text', text: 'On' }, value: 'on' },
+            { text: { type: 'plain_text', text: 'Off' }, value: 'off' },
+          ],
+          initial_option: {
+            text: {
+              type: 'plain_text',
+              text:
+                currentValue === 'default'
+                  ? 'Use workspace default'
+                  : currentValue === 'on'
+                    ? 'On'
+                    : 'Off',
+            },
+            value: currentValue,
+          },
+        },
+        label: { type: 'plain_text', text: 'Reminders' },
+      },
+      {
+        type: 'input',
+        block_id: 'reminder_offsets_block',
+        element: {
+          type: 'plain_text_input',
+          action_id: 'reminder_offsets_input',
+          placeholder: {
+            type: 'plain_text',
+            text: `Workspace default: ${current?.workspaceDefault ?? '15,5'}`,
+          },
+          ...(current?.reminderOffsets && { initial_value: current.reminderOffsets }),
+        },
+        label: {
+          type: 'plain_text',
+          text: 'Reminder Times (minutes before deadline, leave empty for workspace default)',
+        },
+        optional: true,
+      },
+    ],
+  };
+}
+
+export function buildExcuseModal(): {
+  type: string;
+  title: { type: string; text: string };
+  blocks: KnownBlock[];
+  submit: { type: string; text: string };
+  callback_id: string;
+} {
+  const today = new Intl.DateTimeFormat('en-CA').format(new Date());
+
+  return {
+    type: 'modal',
+    callback_id: 'standup_me_excuse_modal',
+    title: { type: 'plain_text', text: 'Set Absence' },
+    submit: { type: 'plain_text', text: 'Save' },
+    blocks: [
+      {
+        type: 'input',
+        block_id: 'start_date_block',
+        element: {
+          type: 'datepicker',
+          action_id: 'start_date_picker',
+          initial_date: today,
+          placeholder: { type: 'plain_text', text: 'Start date' },
+        },
+        label: { type: 'plain_text', text: 'Start Date' },
+      },
+      {
+        type: 'input',
+        block_id: 'end_date_block',
+        element: {
+          type: 'datepicker',
+          action_id: 'end_date_picker',
+          initial_date: today,
+          placeholder: { type: 'plain_text', text: 'End date' },
+        },
+        label: { type: 'plain_text', text: 'End Date' },
+      },
+      {
+        type: 'input',
+        block_id: 'reason_block',
+        element: {
+          type: 'plain_text_input',
+          action_id: 'reason_input',
+          placeholder: { type: 'plain_text', text: 'e.g., Vacation, Sick leave' },
+        },
+        label: { type: 'plain_text', text: 'Reason (optional)' },
+        optional: true,
+      },
+    ],
+  };
+}
+
+export function buildWeeklySummaryBlocks(
+  dateRange: string,
+  entries: Array<{ date: string; dayName: string; yesterday: string; today: string; blockers?: string }>,
+  aiSummary?: string
+): (Block | KnownBlock)[] {
+  const blocks: (Block | KnownBlock)[] = [
+    {
+      type: 'header',
+      text: { type: 'plain_text', text: `📅 Your Week (${dateRange})`, emoji: true },
+    },
+  ];
+
+  if (aiSummary) {
+    blocks.push({
+      type: 'section',
+      text: { type: 'mrkdwn', text: aiSummary },
+    });
+    blocks.push({ type: 'divider' });
+  }
+
+  for (const entry of entries) {
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text:
+          `*${entry.dayName} (${entry.date}):*\n` +
+          `*Yesterday:* ${entry.yesterday}\n` +
+          `*Today:* ${entry.today}` +
+          (entry.blockers ? `\n*Blockers:* ${entry.blockers}` : ''),
+      },
+    });
+  }
+
+  if (entries.length === 0) {
+    blocks.push({
+      type: 'section',
+      text: { type: 'mrkdwn', text: 'No standup entries found for this week.' },
+    });
+  }
+
+  return blocks;
 }
