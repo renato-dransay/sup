@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { getReminderOffsets } from '../../src/services/scheduler.js';
+import { resolveReminderConfig } from '../../src/services/preferences.js';
 
 describe('scheduler reminders', () => {
-  it('returns expected reminder offsets', () => {
-    expect(getReminderOffsets()).toEqual([15, 5]);
+  it('resolves default workspace offsets when no user preference exists', () => {
+    const workspace = { remindersEnabled: true, reminderOffsets: '15,5' };
+    const result = resolveReminderConfig(workspace, null);
+    expect(result).toEqual({ enabled: true, offsets: [15, 5] });
   });
 });
