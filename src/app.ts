@@ -15,6 +15,13 @@ import { handleStandupConfig } from './commands/standup-config.js';
 import { handleStandupOptIn } from './commands/standup-optin.js';
 import { handleStandupOptOut } from './commands/standup-optout.js';
 import { handleStandupStatus } from './commands/standup-status.js';
+import { handleStandupMe } from './commands/standup-me.js';
+import { createStandupWeeklyHandler } from './commands/standup-weekly.js';
+import { handleRemindersSubmission } from './modals/me-reminders.js';
+import { handleExcuseSubmission } from './modals/me-excuse.js';
+import { buildRemindersModal, buildExcuseModal } from './utils/formatting.js';
+import { deleteExcuse } from './services/excuses.js';
+import { openModal } from './services/slack.js';
 
 // Event handlers
 import { handleAppMention } from './events/app_mention.js';
@@ -65,7 +72,9 @@ export function createApp(config: Config): AppType {
             '• `/standup config` - Update config\n' +
             '• `/standup optin` - Opt in\n' +
             '• `/standup optout` - Opt out\n' +
-            '• `/standup status` - View status',
+            '• `/standup status` - View status\n' +
+            '• `/standup me` - Your preferences (reminders, excuses)\n' +
+            '• `/standup weekly` - Your personal weekly summary',
           response_type: 'ephemeral',
         });
         break;
@@ -86,6 +95,8 @@ export function createApp(config: Config): AppType {
   app.command('/standup-optin', handleStandupOptIn);
   app.command('/standup-optout', handleStandupOptOut);
   app.command('/standup-status', handleStandupStatus);
+  app.command('/standup-me', handleStandupMe);
+  app.command('/standup-weekly', createStandupWeeklyHandler(summarizer));
 
   // Event listeners
   app.event('app_mention', handleAppMention);
@@ -94,12 +105,48 @@ export function createApp(config: Config): AppType {
   app.action('open_standup_modal', handleOpenStandupModal);
   app.action('skip_standup', handleSkipStandup);
 
+  // Hub action buttons
+  app.action('open_reminders_modal', async ({ ack, body, client }) => {
+    await ack();
+    if (!('trigger_id' in body)) return;
+    const modal = buildRemindersModal();
+    await openModal(client, body.trigger_id, modal);
+  });
+
+  app.action('open_excuse_modal', async ({ ack, body, client }) => {
+    await ack();
+    if (!('trigger_id' in body)) return;
+    const modal = buildExcuseModal();
+    await openModal(client, body.trigger_id, modal);
+  });
+
+  // Cancel excuse action (dynamic action_id)
+  app.action(/^cancel_excuse_/, async ({ ack, action, respond }) => {
+    await ack();
+    const excuseId = 'value' in action ? (action.value as string) : '';
+    if (excuseId) {
+      try {
+        await deleteExcuse(excuseId);
+        if (respond) {
+          await respond({ text: '✅ Excuse cancelled.', response_type: 'ephemeral', replace_original: false });
+        }
+      } catch (error) {
+        logger.error({ error, excuseId }, 'Failed to cancel excuse');
+        if (respond) {
+          await respond({ text: '❌ Failed to cancel excuse.', response_type: 'ephemeral', replace_original: false });
+        }
+      }
+    }
+  });
+
   // View submissions
   app.view(
     'standup_config_modal',
     createSetupConfigHandler(client, summarizer)
   );
   app.view('standup_collection_modal', handleStandupSubmission);
+  app.view('standup_me_reminders_modal', handleRemindersSubmission);
+  app.view('standup_me_excuse_modal', handleExcuseSubmission);
 
   // Error handling
   // eslint-disable-next-line @typescript-eslint/require-await

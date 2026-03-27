@@ -1,4 +1,5 @@
 import { SlackCommandMiddlewareArgs, AllMiddlewareArgs } from '@slack/bolt';
+import { WebClient } from '@slack/web-api';
 import { logger } from '../utils/logger.js';
 import { prisma } from '../db/prismaClient.js';
 import { buildMeHubBlocks, buildRemindersModal, buildExcuseModal } from '../utils/formatting.js';
@@ -90,7 +91,7 @@ async function handleHub(
 
 async function handleRemindersModal(
   command: SlackCommandMiddlewareArgs['command'],
-  client: SlackCommandMiddlewareArgs['client'],
+  client: WebClient,
   workspace: { id: string; reminderOffsets: string }
 ): Promise<void> {
   const member = await prisma.member.findUnique({
@@ -110,7 +111,7 @@ async function handleRemindersModal(
 async function handleExcuseSubcommand(
   command: SlackCommandMiddlewareArgs['command'],
   respond: SlackCommandMiddlewareArgs['respond'],
-  client: SlackCommandMiddlewareArgs['client'],
+  client: WebClient,
   workspace: { id: string; timezone: string },
   args: string
 ): Promise<void> {
