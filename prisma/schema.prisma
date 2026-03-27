@@ -39,6 +39,7 @@ model Member {
 
   preference MemberPreference?
   excuses    Excuse[]
+  drafts     StandupDraft[]
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
@@ -121,6 +122,23 @@ model MemberPreference {
   member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   @@index([memberId])
+}
+
+model StandupDraft {
+  id          String   @id @default(uuid())
+  memberId    String
+  workspaceId String
+  yesterday   String
+  today       String
+  blockers    String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, memberId])
+  @@index([workspaceId])
 }
 
 model Excuse {

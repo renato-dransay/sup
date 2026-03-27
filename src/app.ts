@@ -17,6 +17,8 @@ import { handleStandupOptOut } from './commands/standup-optout.js';
 import { handleStandupStatus } from './commands/standup-status.js';
 import { handleStandupMe } from './commands/standup-me.js';
 import { createStandupWeeklyHandler } from './commands/standup-weekly.js';
+import { handleStandupPrefill } from './commands/standup-prefill.js';
+import { handlePrefillSubmission } from './modals/prefill-standup.js';
 import { handleRemindersSubmission } from './modals/me-reminders.js';
 import { handleExcuseSubmission } from './modals/me-excuse.js';
 import { buildRemindersModal, buildExcuseModal } from './utils/formatting.js';
@@ -74,7 +76,8 @@ export function createApp(config: Config): AppType {
             '• `/standup optout` - Opt out\n' +
             '• `/standup status` - View status\n' +
             '• `/standup me` - Your preferences (reminders, excuses)\n' +
-            '• `/standup weekly` - Your personal weekly summary',
+            '• `/standup weekly` - Your personal weekly summary\n' +
+            "• `/standup prefill` - Pre-fill tomorrow's stand-up tonight",
           response_type: 'ephemeral',
         });
         break;
@@ -97,6 +100,7 @@ export function createApp(config: Config): AppType {
   app.command('/standup-status', handleStandupStatus);
   app.command('/standup-me', handleStandupMe);
   app.command('/standup-weekly', createStandupWeeklyHandler(summarizer));
+  app.command('/standup-prefill', handleStandupPrefill);
 
   // Event listeners
   app.event('app_mention', handleAppMention);
@@ -150,6 +154,7 @@ export function createApp(config: Config): AppType {
   // View submissions
   app.view('standup_config_modal', createSetupConfigHandler(client, summarizer));
   app.view('standup_collection_modal', handleStandupSubmission);
+  app.view('standup_prefill_modal', handlePrefillSubmission);
   app.view('standup_me_reminders_modal', handleRemindersSubmission);
   app.view('standup_me_excuse_modal', handleExcuseSubmission);
 

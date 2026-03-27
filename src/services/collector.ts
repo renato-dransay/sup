@@ -13,6 +13,7 @@ import { openDMChannel, openModal } from './slack.js';
 import { getOptedInUsers } from './users.js';
 import { getExcusedMemberIds } from './excuses.js';
 import { resolveUserReminderConfig } from './preferences.js';
+import { consumeDraftsForStandup } from './drafts.js';
 
 const DEFAULT_COLLECTION_WINDOW_MIN = 45;
 export const SUBMISSION_STATUS = {
@@ -168,12 +169,42 @@ export async function collectFromUsers(
 
     logger.info({ workspaceId, standupId, userCount: activeUserIds.length }, 'Starting collection');
 
+    // Auto-submit pre-filled drafts
+    const drafts = await consumeDraftsForStandup(workspaceId);
+    const draftUserIds = new Set<string>();
+    for (const draft of drafts) {
+      try {
+        await saveEntry(
+          standupId,
+          draft.userId,
+          draft.yesterday,
+          draft.today,
+          draft.blockers,
+          draft.notes
+        );
+        draftUserIds.add(draft.userId);
+
+        // Send confirmation DM
+        const dmChannel = await openDMChannel(client, draft.userId);
+        await client.chat.postMessage({
+          channel: dmChannel,
+          text: '✅ Your pre-filled stand-up has been submitted automatically. Have a great day!',
+        });
+
+        logger.info({ userId: draft.userId, standupId }, 'Pre-filled draft auto-submitted');
+      } catch (error) {
+        logger.error({ error, userId: draft.userId, standupId }, 'Failed to auto-submit draft');
+      }
+    }
+
     const modal = buildStandupCollectionModal();
     const deadlineText = standup.deadlineAt
       ? formatDateTime(standup.deadlineAt, standup.workspace.timezone)
       : 'the collection window';
 
     for (const userId of activeUserIds) {
+      // Skip users whose draft was already auto-submitted
+      if (draftUserIds.has(userId)) continue;
       try {
         if (triggerId && specificUserId === userId) {
           await openModal(client, triggerId, modal);
