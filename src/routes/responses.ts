@@ -1,20 +1,27 @@
+import { Prisma } from '@prisma/client';
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '../db/prismaClient.js';
 import { logger } from '../utils/logger.js';
 
 export function registerApiRoutes(fastify: FastifyInstance, apiKey: string): void {
-  const authenticate = async (request: FastifyRequest, reply: FastifyReply) => {
+  const authenticate = (
+    request: FastifyRequest,
+    reply: FastifyReply,
+    done: (err?: Error) => void
+  ) => {
     const authHeader = request.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      await reply.code(401).send({ error: 'Missing or invalid authorization header' });
+      void reply.code(401).send({ error: 'Missing or invalid authorization header' });
       return;
     }
 
     const token = authHeader.slice(7);
     if (token !== apiKey) {
-      await reply.code(401).send({ error: 'Invalid API key' });
+      void reply.code(401).send({ error: 'Invalid API key' });
       return;
     }
+
+    done();
   };
 
   fastify.get(
@@ -31,10 +38,8 @@ export function registerApiRoutes(fastify: FastifyInstance, apiKey: string): voi
 
       try {
         // Build Prisma where clause
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const standupWhere: Record<string, any> = {};
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const entryWhere: Record<string, any> = {};
+        const standupWhere: Prisma.StandupWhereInput = {};
+        const entryWhere: Prisma.EntryWhereInput = {};
 
         if (query.teamId) {
           standupWhere.workspace = { teamId: query.teamId };
@@ -43,9 +48,10 @@ export function registerApiRoutes(fastify: FastifyInstance, apiKey: string): voi
         if (query.date) {
           standupWhere.date = query.date;
         } else if (query.from || query.to) {
-          standupWhere.date = {};
-          if (query.from) standupWhere.date.gte = query.from;
-          if (query.to) standupWhere.date.lte = query.to;
+          standupWhere.date = {
+            ...(query.from ? { gte: query.from } : {}),
+            ...(query.to ? { lte: query.to } : {}),
+          };
         }
 
         if (query.userId) {

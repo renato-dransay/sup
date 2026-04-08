@@ -21,6 +21,13 @@ interface RichTextBlock {
   elements: RichTextElement[];
 }
 
+export interface StandupCollectionDraftValues {
+  yesterday?: string | null;
+  today?: string | null;
+  blockers?: string | null;
+  notes?: string | null;
+}
+
 export function richTextToMrkdwn(richText: RichTextBlock): string {
   return richText.elements.map(renderSection).join('\n');
 }
@@ -511,13 +518,41 @@ export function buildConfigModal(currentConfig?: {
   };
 }
 
-export function buildStandupCollectionModal(): {
+function textToRichText(text?: string | null): RichTextBlock | undefined {
+  if (!text?.trim()) return undefined;
+
+  return {
+    type: 'rich_text',
+    elements: text
+      .replace(/\r\n/g, '\n')
+      .split('\n')
+      .map((line) => ({
+        type: 'rich_text_section' as const,
+        elements: [
+          {
+            type: 'text' as const,
+            text: line,
+          },
+        ],
+      })),
+  };
+}
+
+export function buildStandupCollectionModal(options?: {
+  closeText?: string;
+  notifyOnClose?: boolean;
+  initialValues?: StandupCollectionDraftValues;
+}): {
   type: string;
   title: { type: string; text: string };
   blocks: KnownBlock[];
   submit: { type: string; text: string };
   callback_id: string;
+  close?: { type: string; text: string };
+  notify_on_close?: boolean;
 } {
+  const initialValues = options?.initialValues;
+
   return {
     type: 'modal',
     callback_id: 'standup_collection_modal',
@@ -529,6 +564,15 @@ export function buildStandupCollectionModal(): {
       type: 'plain_text',
       text: 'Submit',
     },
+    ...(options?.closeText
+      ? {
+          close: {
+            type: 'plain_text',
+            text: options.closeText,
+          },
+        }
+      : {}),
+    ...(options?.notifyOnClose ? { notify_on_close: true } : {}),
     blocks: [
       {
         type: 'section',
@@ -543,6 +587,9 @@ export function buildStandupCollectionModal(): {
         element: {
           type: 'rich_text_input',
           action_id: 'yesterday_input',
+          ...(textToRichText(initialValues?.yesterday)
+            ? { initial_value: textToRichText(initialValues?.yesterday) as never }
+            : {}),
           placeholder: {
             type: 'plain_text',
             text: 'What did you achieve yesterday?',
@@ -559,6 +606,9 @@ export function buildStandupCollectionModal(): {
         element: {
           type: 'rich_text_input',
           action_id: 'today_input',
+          ...(textToRichText(initialValues?.today)
+            ? { initial_value: textToRichText(initialValues?.today) as never }
+            : {}),
           placeholder: {
             type: 'plain_text',
             text: 'What do you plan to achieve today?',
@@ -575,6 +625,9 @@ export function buildStandupCollectionModal(): {
         element: {
           type: 'rich_text_input',
           action_id: 'blockers_input',
+          ...(textToRichText(initialValues?.blockers)
+            ? { initial_value: textToRichText(initialValues?.blockers) as never }
+            : {}),
           placeholder: {
             type: 'plain_text',
             text: 'Any Blockers or Risks?',
@@ -592,6 +645,9 @@ export function buildStandupCollectionModal(): {
         element: {
           type: 'rich_text_input',
           action_id: 'notes_input',
+          ...(textToRichText(initialValues?.notes)
+            ? { initial_value: textToRichText(initialValues?.notes) as never }
+            : {}),
           placeholder: {
             type: 'plain_text',
             text: 'Additional Notes',

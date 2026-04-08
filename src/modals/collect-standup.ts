@@ -6,8 +6,46 @@ import { buildStandupCollectionModal, richTextToMrkdwn } from '../utils/formatti
 import { openModal } from '../services/slack.js';
 import { prisma } from '../db/prismaClient.js';
 import { recompileStandup } from '../services/compiler.js';
+import {
+  deleteStandupFormDraftByUserId,
+  getStandupFormDraftByUserId,
+  saveStandupFormDraftByUserId,
+  StandupFormDraftValues,
+} from '../services/form-drafts.js';
 
 export const DAILY_FORM_ACK_PREFIX = 'Thank you, buddy!';
+
+function parseStandupFormValues(
+  values: Record<string, Record<string, unknown>>
+): StandupFormDraftValues {
+  const getRichText = (blockId: string, actionId: string) => {
+    const block = values[blockId];
+    if (!block) return undefined;
+    const action = block[actionId];
+    if (!action) return undefined;
+    return (action as Record<string, unknown>).rich_text_value as
+      | Parameters<typeof richTextToMrkdwn>[0]
+      | undefined;
+  };
+
+  const yesterdayRt = getRichText('yesterday_block', 'yesterday_input');
+  const todayRt = getRichText('today_block', 'today_input');
+  const blockersRt = getRichText('blockers_block', 'blockers_input');
+  const notesRt = getRichText('notes_block', 'notes_input');
+
+  return {
+    yesterday: yesterdayRt ? richTextToMrkdwn(yesterdayRt) : '',
+    today: todayRt ? richTextToMrkdwn(todayRt) : '',
+    blockers: blockersRt ? richTextToMrkdwn(blockersRt) || undefined : undefined,
+    notes: notesRt ? richTextToMrkdwn(notesRt) || undefined : undefined,
+  };
+}
+
+function hasDraftContent(values: StandupFormDraftValues): boolean {
+  return [values.yesterday, values.today, values.blockers, values.notes].some((value) =>
+    Boolean(value?.trim())
+  );
+}
 
 export function buildSubmissionConfirmationText(
   status: SubmissionStatus,
@@ -34,13 +72,27 @@ export async function handleOpenStandupModal({
       return;
     }
 
-    const modal = buildStandupCollectionModal();
     const standupId = 'value' in action ? (action.value as string) : '';
+    const standup = await prisma.standup.findUnique({
+      where: { id: standupId },
+      select: { workspaceId: true },
+    });
 
-    // Store standupId in private_metadata
+    if (!standup) {
+      logger.error({ standupId, userId: body.user.id }, 'Stand-up not found while opening modal');
+      return;
+    }
+
+    const draft = await getStandupFormDraftByUserId(standupId, standup.workspaceId, body.user.id);
+    const modal = buildStandupCollectionModal({
+      closeText: 'Save Draft',
+      notifyOnClose: true,
+      initialValues: draft ?? undefined,
+    });
+
     const modalWithMetadata = {
       ...modal,
-      private_metadata: JSON.stringify({ standupId }),
+      private_metadata: JSON.stringify({ standupId, workspaceId: standup.workspaceId }),
     };
 
     await openModal(client, body.trigger_id, modalWithMetadata);
@@ -73,6 +125,44 @@ export async function handleSkipStandup({
   }
 }
 
+export async function handleStandupClose({
+  ack,
+  view,
+  body,
+}: SlackViewMiddlewareArgs & AllMiddlewareArgs): Promise<void> {
+  try {
+    await ack();
+
+    const metadata = JSON.parse(view.private_metadata || '{}') as {
+      standupId?: string;
+      workspaceId?: string;
+    };
+    const { standupId, workspaceId } = metadata;
+
+    if (!standupId || !workspaceId) {
+      logger.error({ view }, 'Missing standup draft metadata on modal close');
+      return;
+    }
+
+    const draftValues = parseStandupFormValues(
+      view.state.values as Record<string, Record<string, unknown>>
+    );
+
+    if (hasDraftContent(draftValues)) {
+      await saveStandupFormDraftByUserId(standupId, workspaceId, body.user.id, draftValues);
+      logger.info(
+        { standupId, workspaceId, userId: body.user.id },
+        'Stand-up modal closed to draft'
+      );
+      return;
+    }
+
+    await deleteStandupFormDraftByUserId(standupId, workspaceId, body.user.id);
+  } catch (error) {
+    logger.error({ error, view }, 'Failed to handle standup modal close');
+  }
+}
+
 export async function handleStandupSubmission({
   ack,
   view,
@@ -81,29 +171,15 @@ export async function handleStandupSubmission({
 }: SlackViewMiddlewareArgs & AllMiddlewareArgs): Promise<void> {
   try {
     await ack();
+    const draftValues = parseStandupFormValues(
+      view.state.values as Record<string, Record<string, unknown>>
+    );
 
-    const values = view.state.values;
-    const getRichText = (blockId: string, actionId: string) => {
-      const block = values[blockId];
-      if (!block) return undefined;
-      const action = block[actionId];
-      if (!action) return undefined;
-      return (action as unknown as Record<string, unknown>).rich_text_value as
-        | Parameters<typeof richTextToMrkdwn>[0]
-        | undefined;
+    const metadata = JSON.parse(view.private_metadata || '{}') as {
+      standupId?: string;
+      workspaceId?: string;
     };
-
-    const yesterdayRt = getRichText('yesterday_block', 'yesterday_input');
-    const todayRt = getRichText('today_block', 'today_input');
-    const yesterday = yesterdayRt ? richTextToMrkdwn(yesterdayRt) : '';
-    const today = todayRt ? richTextToMrkdwn(todayRt) : '';
-    const blockersRt = getRichText('blockers_block', 'blockers_input');
-    const blockers = blockersRt ? richTextToMrkdwn(blockersRt) || undefined : undefined;
-    const notesRt = getRichText('notes_block', 'notes_input');
-    const notes = notesRt ? richTextToMrkdwn(notesRt) || undefined : undefined;
-
-    const metadata = JSON.parse(view.private_metadata || '{}') as { standupId?: string };
-    const standupId = metadata.standupId;
+    const { standupId, workspaceId } = metadata;
 
     if (!standupId) {
       logger.error({ view }, 'No standupId in private_metadata');
@@ -118,11 +194,15 @@ export async function handleStandupSubmission({
     const { status, deadlineAt } = await saveEntry(
       standupId,
       body.user.id,
-      yesterday,
-      today,
-      blockers,
-      notes
+      draftValues.yesterday,
+      draftValues.today,
+      draftValues.blockers,
+      draftValues.notes
     );
+
+    if (workspaceId) {
+      await deleteStandupFormDraftByUserId(standupId, workspaceId, body.user.id);
+    }
 
     // Send confirmation DM
     const deadlineText =

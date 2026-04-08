@@ -40,6 +40,7 @@ model Member {
   preference MemberPreference?
   excuses    Excuse[]
   drafts     StandupDraft[]
+  formDrafts StandupFormDraft[]
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
@@ -59,8 +60,9 @@ model Standup {
   messageTs   String?
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  entries   Entry[]
-  reminders ReminderDispatch[]
+  entries    Entry[]
+  reminders  ReminderDispatch[]
+  formDrafts StandupFormDraft[]
 
   @@unique([workspaceId, date])
   @@index([workspaceId])
@@ -139,6 +141,25 @@ model StandupDraft {
 
   @@unique([workspaceId, memberId])
   @@index([workspaceId])
+}
+
+model StandupFormDraft {
+  id        String   @id @default(uuid())
+  standupId String
+  memberId  String
+  yesterday String
+  today     String
+  blockers  String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  standup Standup @relation(fields: [standupId], references: [id], onDelete: Cascade)
+  member  Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([standupId, memberId])
+  @@index([standupId])
+  @@index([memberId])
 }
 
 model Excuse {

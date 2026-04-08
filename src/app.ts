@@ -32,6 +32,7 @@ import { handleAppMention } from './events/app_mention.js';
 import { createSetupConfigHandler } from './modals/setup-config.js';
 import {
   handleOpenStandupModal,
+  handleStandupClose,
   handleSkipStandup,
   handleStandupSubmission,
 } from './modals/collect-standup.js';
@@ -154,6 +155,7 @@ export function createApp(config: Config): AppType {
   // View submissions
   app.view('standup_config_modal', createSetupConfigHandler(client, summarizer));
   app.view('standup_collection_modal', handleStandupSubmission);
+  app.view({ type: 'view_closed', callback_id: 'standup_collection_modal' }, handleStandupClose);
   app.view('standup_prefill_modal', handlePrefillSubmission);
   app.view('standup_me_reminders_modal', handleRemindersSubmission);
   app.view('standup_me_excuse_modal', handleExcuseSubmission);

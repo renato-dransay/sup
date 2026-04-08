@@ -4,6 +4,7 @@ import {
   buildEntryBlock,
   buildMissedSection,
   buildCompleteStandupBlocks,
+  buildStandupCollectionModal,
 } from '../../src/utils/formatting.js';
 
 describe('formatting utilities', () => {
@@ -100,6 +101,38 @@ describe('formatting utilities', () => {
             text: expect.stringContaining('*Deadline:* March 15, 2024 at 09:45 AM IST'),
           },
         ],
+      });
+    });
+  });
+
+  describe('buildStandupCollectionModal', () => {
+    it('restores draft values and enables save-on-close when configured', () => {
+      const modal = buildStandupCollectionModal({
+        closeText: 'Save Draft',
+        notifyOnClose: true,
+        initialValues: {
+          yesterday: 'Shipped alert fix',
+          today: 'Watch metrics',
+          blockers: 'Waiting on deploy',
+          notes: 'Escalate if error rate climbs',
+        },
+      });
+
+      expect(modal.notify_on_close).toBe(true);
+      expect(modal.close).toEqual({ type: 'plain_text', text: 'Save Draft' });
+      expect(modal.blocks[1]).toMatchObject({
+        element: {
+          initial_value: {
+            type: 'rich_text',
+          },
+        },
+      });
+      expect(modal.blocks[4]).toMatchObject({
+        element: {
+          initial_value: {
+            type: 'rich_text',
+          },
+        },
       });
     });
   });
