@@ -659,6 +659,21 @@ export function buildStandupCollectionModal(options?: {
         },
         optional: true,
       },
+      {
+        type: 'actions',
+        block_id: 'draft_actions_block',
+        elements: [
+          {
+            type: 'button',
+            action_id: 'save_standup_draft',
+            text: {
+              type: 'plain_text',
+              text: 'Save Draft',
+            },
+            style: 'primary' as never,
+          },
+        ],
+      },
     ],
   };
 }

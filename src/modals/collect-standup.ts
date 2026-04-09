@@ -87,7 +87,6 @@ export async function handleOpenStandupModal({
 
     const draft = await getStandupFormDraftByUserId(standupId, standup.workspaceId, body.user.id);
     const modal = buildStandupCollectionModal({
-      closeText: 'Save Draft',
       notifyOnClose: true,
       initialValues: draft ?? undefined,
     });
@@ -163,10 +162,31 @@ export async function handleSkipStandup({
 export async function handleStandupClose({
   ack,
   view,
-  body,
 }: SlackViewMiddlewareArgs & AllMiddlewareArgs): Promise<void> {
   try {
     await ack();
+    const metadata = JSON.parse(view.private_metadata || '{}') as {
+      standupId?: string;
+    };
+    logger.info({ standupId: metadata.standupId }, 'Stand-up modal closed without saving');
+  } catch (error) {
+    logger.error({ error, view }, 'Failed to handle standup modal close');
+  }
+}
+
+export async function handleSaveDraft({
+  ack,
+  body,
+  client,
+}: SlackActionMiddlewareArgs & AllMiddlewareArgs): Promise<void> {
+  try {
+    await ack();
+
+    const view = 'view' in body ? body.view : undefined;
+    if (!view) {
+      logger.error({ body }, 'No view in body for save draft action');
+      return;
+    }
 
     const metadata = JSON.parse(view.private_metadata || '{}') as {
       standupId?: string;
@@ -175,7 +195,7 @@ export async function handleStandupClose({
     const { standupId, workspaceId } = metadata;
 
     if (!standupId || !workspaceId) {
-      logger.error({ view }, 'Missing standup draft metadata on modal close');
+      logger.error({ body }, 'Missing metadata for save draft action');
       return;
     }
 
@@ -185,16 +205,37 @@ export async function handleStandupClose({
 
     if (hasDraftContent(draftValues)) {
       await saveStandupFormDraftByUserId(standupId, workspaceId, body.user.id, draftValues);
-      logger.info(
-        { standupId, workspaceId, userId: body.user.id },
-        'Stand-up modal closed to draft'
-      );
-      return;
+    } else {
+      await deleteStandupFormDraftByUserId(standupId, workspaceId, body.user.id);
     }
 
-    await deleteStandupFormDraftByUserId(standupId, workspaceId, body.user.id);
+    // Close the modal with a confirmation message
+    await client.views.update({
+      view_id: view.id,
+      view: {
+        type: 'modal',
+        callback_id: 'standup_draft_saved',
+        title: { type: 'plain_text', text: 'Daily Stand-up' },
+        blocks: [
+          {
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: hasDraftContent(draftValues)
+                ? ':white_check_mark: *Draft saved!* Your progress will be restored next time you open this stand-up.'
+                : ':information_source: Nothing to save — the form was empty.',
+            },
+          },
+        ],
+      },
+    });
+
+    logger.info(
+      { standupId, workspaceId, userId: body.user.id },
+      'Stand-up draft saved via button'
+    );
   } catch (error) {
-    logger.error({ error, view }, 'Failed to handle standup modal close');
+    logger.error({ error }, 'Failed to save standup draft');
   }
 }
 

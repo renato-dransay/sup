@@ -52,6 +52,7 @@ import { saveEntry } from '../../src/services/collector.js';
 import { createExcuse } from '../../src/services/excuses.js';
 import {
   handleOpenStandupModal,
+  handleSaveDraft,
   handleSkipStandup,
   handleStandupClose,
   handleStandupSubmission,
@@ -106,7 +107,6 @@ describe('standup collection modal handlers', () => {
       'trigger-1',
       expect.objectContaining({
         notify_on_close: true,
-        close: { type: 'plain_text', text: 'Save Draft' },
         private_metadata: JSON.stringify({ standupId: 'standup-1', workspaceId: 'ws-1' }),
       })
     );
@@ -124,25 +124,45 @@ describe('standup collection modal handlers', () => {
     });
   });
 
-  it('saves a draft when the standup modal is closed with content', async () => {
+  it('does not attempt to save draft on modal close (view_closed has no form values)', async () => {
     await handleStandupClose({
       ack: vi.fn().mockResolvedValue(undefined),
       body: { user: { id: 'U123' } } as never,
       view: {
-        private_metadata: JSON.stringify({ standupId: 'standup-1', workspaceId: 'ws-1' }),
-        state: {
-          values: {
-            yesterday_block: {
-              yesterday_input: { rich_text_value: richTextValue('Finished API work') },
+        private_metadata: JSON.stringify({ standupId: 'standup-1' }),
+      } as never,
+    } as never);
+
+    expect(mockSaveStandupFormDraftByUserId).not.toHaveBeenCalled();
+    expect(mockDeleteStandupFormDraftByUserId).not.toHaveBeenCalled();
+  });
+
+  it('saves a draft when the Save Draft button is clicked', async () => {
+    const mockViewsUpdate = vi.fn().mockResolvedValue(undefined);
+
+    await handleSaveDraft({
+      ack: vi.fn().mockResolvedValue(undefined),
+      body: {
+        user: { id: 'U123' },
+        view: {
+          id: 'V123',
+          private_metadata: JSON.stringify({ standupId: 'standup-1', workspaceId: 'ws-1' }),
+          state: {
+            values: {
+              yesterday_block: {
+                yesterday_input: { rich_text_value: richTextValue('Finished API work') },
+              },
+              today_block: {
+                today_input: { rich_text_value: richTextValue('Write tests') },
+              },
+              blockers_block: {},
+              notes_block: {},
             },
-            today_block: {
-              today_input: { rich_text_value: richTextValue('Write tests') },
-            },
-            blockers_block: {},
-            notes_block: {},
           },
         },
       } as never,
+      client: { views: { update: mockViewsUpdate } } as never,
+      action: {} as never,
     } as never);
 
     expect(mockSaveStandupFormDraftByUserId).toHaveBeenCalledWith('standup-1', 'ws-1', 'U123', {
@@ -151,7 +171,11 @@ describe('standup collection modal handlers', () => {
       blockers: undefined,
       notes: undefined,
     });
-    expect(mockDeleteStandupFormDraftByUserId).not.toHaveBeenCalled();
+    expect(mockViewsUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        view_id: 'V123',
+      })
+    );
   });
 
   it('clears the draft after successful submission', async () => {

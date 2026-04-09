@@ -33,6 +33,7 @@ import { createSetupConfigHandler } from './modals/setup-config.js';
 import {
   handleOpenStandupModal,
   handleStandupClose,
+  handleSaveDraft,
   handleSkipStandup,
   handleStandupSubmission,
 } from './modals/collect-standup.js';
@@ -109,6 +110,7 @@ export function createApp(config: Config): AppType {
   // Action listeners
   app.action('open_standup_modal', handleOpenStandupModal);
   app.action('skip_standup', handleSkipStandup);
+  app.action('save_standup_draft', handleSaveDraft);
 
   // Hub action buttons
   app.action('open_reminders_modal', async ({ ack, body, client }) => {
