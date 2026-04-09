@@ -5,6 +5,12 @@ vi.mock('../../src/db/prismaClient.js', () => ({
     standup: {
       findUnique: vi.fn(),
     },
+    member: {
+      findUnique: vi.fn(),
+    },
+    reminderDispatch: {
+      updateMany: vi.fn(),
+    },
   },
 }));
 
@@ -26,6 +32,15 @@ vi.mock('../../src/services/collector.js', () => ({
   },
 }));
 
+vi.mock('../../src/services/excuses.js', () => ({
+  createExcuse: vi.fn(),
+}));
+
+vi.mock('../../src/utils/date.js', () => ({
+  formatDateTime: vi.fn().mockReturnValue('10:15 AM'),
+  getTodayDate: vi.fn().mockReturnValue('2026-04-09'),
+}));
+
 import { prisma } from '../../src/db/prismaClient.js';
 import { openModal } from '../../src/services/slack.js';
 import {
@@ -34,18 +49,23 @@ import {
   saveStandupFormDraftByUserId,
 } from '../../src/services/form-drafts.js';
 import { saveEntry } from '../../src/services/collector.js';
+import { createExcuse } from '../../src/services/excuses.js';
 import {
   handleOpenStandupModal,
+  handleSkipStandup,
   handleStandupClose,
   handleStandupSubmission,
 } from '../../src/modals/collect-standup.js';
 
 const mockStandupFindUnique = vi.mocked(prisma.standup.findUnique);
+const mockMemberFindUnique = vi.mocked(prisma.member.findUnique);
+const mockReminderDispatchUpdateMany = vi.mocked(prisma.reminderDispatch.updateMany);
 const mockOpenModal = vi.mocked(openModal);
 const mockGetStandupFormDraftByUserId = vi.mocked(getStandupFormDraftByUserId);
 const mockSaveStandupFormDraftByUserId = vi.mocked(saveStandupFormDraftByUserId);
 const mockDeleteStandupFormDraftByUserId = vi.mocked(deleteStandupFormDraftByUserId);
 const mockSaveEntry = vi.mocked(saveEntry);
+const mockCreateExcuse = vi.mocked(createExcuse);
 
 function richTextValue(text: string) {
   return {
@@ -170,5 +190,51 @@ describe('standup collection modal handlers', () => {
     } as never);
 
     expect(mockDeleteStandupFormDraftByUserId).toHaveBeenCalledWith('standup-1', 'ws-1', 'U123');
+  });
+
+  it('creates an excuse and cancels reminders when user skips standup', async () => {
+    mockStandupFindUnique.mockResolvedValue({
+      id: 'standup-1',
+      workspaceId: 'ws-1',
+      workspace: { timezone: 'Europe/Berlin' },
+    } as never);
+    mockMemberFindUnique.mockResolvedValue({ id: 'member-1' } as never);
+    mockReminderDispatchUpdateMany.mockResolvedValue({ count: 2 } as never);
+    mockCreateExcuse.mockResolvedValue('excuse-1');
+
+    const mockPostMessage = vi.fn().mockResolvedValue(undefined);
+
+    await handleSkipStandup({
+      ack: vi.fn().mockResolvedValue(undefined),
+      action: { value: 'standup-1' },
+      client: { chat: { postMessage: mockPostMessage } } as never,
+      body: { user: { id: 'U123' } } as never,
+    } as never);
+
+    expect(mockCreateExcuse).toHaveBeenCalledWith('member-1', '2026-04-09', '2026-04-09', 'Skipped via button');
+    expect(mockReminderDispatchUpdateMany).toHaveBeenCalledWith({
+      where: { standupId: 'standup-1', userId: 'U123', status: 'pending' },
+      data: { status: 'skipped', failureReason: 'user skipped standup' },
+    });
+    expect(mockPostMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ text: expect.stringContaining('skipped') })
+    );
+  });
+
+  it('still sends confirmation DM even if standup is not found on skip', async () => {
+    mockStandupFindUnique.mockResolvedValue(null);
+
+    const mockPostMessage = vi.fn().mockResolvedValue(undefined);
+
+    await handleSkipStandup({
+      ack: vi.fn().mockResolvedValue(undefined),
+      action: { value: 'standup-1' },
+      client: { chat: { postMessage: mockPostMessage } } as never,
+      body: { user: { id: 'U123' } } as never,
+    } as never);
+
+    expect(mockCreateExcuse).not.toHaveBeenCalled();
+    expect(mockReminderDispatchUpdateMany).not.toHaveBeenCalled();
+    expect(mockPostMessage).toHaveBeenCalledTimes(1);
   });
 });

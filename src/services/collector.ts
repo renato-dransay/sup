@@ -297,8 +297,27 @@ export async function sendRemindersForOffset(
     ? formatDateTime(standup.deadlineAt, standup.workspace.timezone)
     : 'the collection window';
 
+  const today = standup.date;
+  const excusedUserIds = new Set(await getExcusedMemberIds(standup.workspaceId, today));
+
   for (const dispatch of dispatches) {
     try {
+      // Skip if user has an excuse (including "Skip Today")
+      if (excusedUserIds.has(dispatch.userId)) {
+        await prisma.reminderDispatch.update({
+          where: { id: dispatch.id },
+          data: {
+            status: REMINDER_STATUS.SKIPPED,
+            failureReason: 'user is excused',
+          },
+        });
+        logger.info(
+          { standupId, userId: dispatch.userId, offsetMinutes },
+          'Skipped reminder for excused user'
+        );
+        continue;
+      }
+
       const existingEntry = await prisma.entry.findUnique({
         where: {
           standupId_userId: {

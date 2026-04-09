@@ -6,6 +6,8 @@ import { buildStandupCollectionModal, richTextToMrkdwn } from '../utils/formatti
 import { openModal } from '../services/slack.js';
 import { prisma } from '../db/prismaClient.js';
 import { recompileStandup } from '../services/compiler.js';
+import { createExcuse } from '../services/excuses.js';
+import { getTodayDate } from '../utils/date.js';
 import {
   deleteStandupFormDraftByUserId,
   getStandupFormDraftByUserId,
@@ -113,6 +115,39 @@ export async function handleSkipStandup({
     await ack();
 
     const standupId = 'value' in action ? (action.value as string) : '';
+
+    // Look up the standup to find workspace and date
+    const standup = await prisma.standup.findUnique({
+      where: { id: standupId },
+      include: { workspace: true },
+    });
+
+    if (standup) {
+      const userId = body.user.id;
+      const today = getTodayDate(standup.workspace.timezone);
+
+      // Find the member record to create an excuse
+      const member = await prisma.member.findUnique({
+        where: { workspaceId_userId: { workspaceId: standup.workspaceId, userId } },
+      });
+
+      if (member) {
+        await createExcuse(member.id, today, today, 'Skipped via button');
+      }
+
+      // Cancel all pending reminders for this user/standup
+      await prisma.reminderDispatch.updateMany({
+        where: {
+          standupId,
+          userId,
+          status: 'pending',
+        },
+        data: {
+          status: 'skipped',
+          failureReason: 'user skipped standup',
+        },
+      });
+    }
 
     await client.chat.postMessage({
       channel: body.user.id,
