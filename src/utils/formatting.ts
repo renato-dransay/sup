@@ -580,6 +580,14 @@ export function buildStandupCollectionModal(options?: {
           type: 'mrkdwn',
           text: 'Share your daily update:',
         },
+        accessory: {
+          type: 'button',
+          action_id: 'save_standup_draft',
+          text: {
+            type: 'plain_text',
+            text: '💾 Save draft',
+          },
+        },
       },
       {
         type: 'input',
@@ -658,21 +666,6 @@ export function buildStandupCollectionModal(options?: {
           text: 'Additional Notes (Optional)',
         },
         optional: true,
-      },
-      {
-        type: 'actions',
-        block_id: 'draft_actions_block',
-        elements: [
-          {
-            type: 'button',
-            action_id: 'save_standup_draft',
-            text: {
-              type: 'plain_text',
-              text: 'Save Draft',
-            },
-            style: 'primary' as never,
-          },
-        ],
       },
     ],
   };
