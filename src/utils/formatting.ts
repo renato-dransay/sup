@@ -84,6 +84,11 @@ function renderElement(el: RichTextElement): string {
   return el.text ?? '';
 }
 
+function truncateText(text: string, limit: number): string {
+  if (text.length <= limit) return text;
+  return text.slice(0, limit - 1) + '…';
+}
+
 export interface StandupEntry {
   userId: string;
   userName: string;
@@ -133,6 +138,10 @@ export function buildStandupHeaderBlocks(
 }
 
 export function buildEntryBlock(entry: StandupEntry): KnownBlock[] {
+  const FIELD_LIMIT = 2000;
+  const yesterdayText = truncateText(`*Yesterday:*\n${entry.yesterday}`, FIELD_LIMIT);
+  const todayText = truncateText(`*Today:*\n${entry.today}`, FIELD_LIMIT);
+
   const blocks: KnownBlock[] = [
     {
       type: 'section',
@@ -146,11 +155,11 @@ export function buildEntryBlock(entry: StandupEntry): KnownBlock[] {
       fields: [
         {
           type: 'mrkdwn',
-          text: `*Yesterday:*\n${entry.yesterday}`,
+          text: yesterdayText,
         },
         {
           type: 'mrkdwn',
-          text: `*Today:*\n${entry.today}`,
+          text: todayText,
         },
       ],
     },
@@ -161,7 +170,7 @@ export function buildEntryBlock(entry: StandupEntry): KnownBlock[] {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*Blockers & Risks:* 🚧\n${entry.blockers}`,
+        text: truncateText(`*Blockers & Risks:* 🚧\n${entry.blockers}`, 3000),
       },
     });
   }
@@ -171,7 +180,7 @@ export function buildEntryBlock(entry: StandupEntry): KnownBlock[] {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*Additional Notes:* 📝\n${entry.notes}`,
+        text: truncateText(`*Additional Notes:* 📝\n${entry.notes}`, 3000),
       },
     });
   }

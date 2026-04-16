@@ -72,11 +72,7 @@ export async function deleteStandupFormDraftByUserId(
   const memberId = await getMemberId(workspaceId, userId);
   if (!memberId) return;
 
-  await prisma.standupFormDraft
-    .delete({
-      where: { standupId_memberId: { standupId, memberId } },
-    })
-    .catch(() => {
-      // Ignore if draft doesn't exist
-    });
+  await prisma.standupFormDraft.deleteMany({
+    where: { standupId: standupId, memberId: memberId },
+  });
 }
