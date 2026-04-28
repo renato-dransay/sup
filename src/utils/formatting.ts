@@ -680,6 +680,84 @@ export function buildStandupCollectionModal(options?: {
   };
 }
 
+export interface LastEntrySummary {
+  date: string;
+  yesterday: string;
+  today: string;
+  blockers?: string | null;
+  notes?: string | null;
+}
+
+export function buildLastEntryModal(entry: LastEntrySummary | null): {
+  type: string;
+  title: { type: string; text: string };
+  blocks: KnownBlock[];
+  close: { type: string; text: string };
+  callback_id: string;
+} {
+  const FIELD_LIMIT = 2900;
+  const blocks: KnownBlock[] = [];
+
+  if (!entry) {
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: ":information_source: You haven't submitted a stand-up yet.",
+      },
+    });
+  } else {
+    blocks.push({
+      type: 'context',
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: `Your last submission — *${entry.date}*`,
+        },
+      ],
+    });
+    blocks.push({
+      type: 'section',
+      fields: [
+        {
+          type: 'mrkdwn',
+          text: truncateText(`*Yesterday:*\n${entry.yesterday}`, FIELD_LIMIT),
+        },
+        {
+          type: 'mrkdwn',
+          text: truncateText(`*Today:*\n${entry.today}`, FIELD_LIMIT),
+        },
+      ],
+    });
+    if (entry.blockers && entry.blockers.trim()) {
+      blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: truncateText(`*Blockers & Risks:* 🚧\n${entry.blockers}`, FIELD_LIMIT),
+        },
+      });
+    }
+    if (entry.notes && entry.notes.trim()) {
+      blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: truncateText(`*Additional Notes:* 📝\n${entry.notes}`, FIELD_LIMIT),
+        },
+      });
+    }
+  }
+
+  return {
+    type: 'modal',
+    callback_id: 'standup_last_entry_modal',
+    title: { type: 'plain_text', text: "Yesterday's Daily" },
+    close: { type: 'plain_text', text: 'Close' },
+    blocks,
+  };
+}
+
 export function buildMeHubBlocks(config: {
   remindersLabel: string;
   offsetsLabel: string;

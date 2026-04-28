@@ -2,7 +2,11 @@ import { AllMiddlewareArgs, SlackViewMiddlewareArgs, SlackActionMiddlewareArgs }
 import { logger } from '../utils/logger.js';
 import { saveEntry, SUBMISSION_STATUS, SubmissionStatus } from '../services/collector.js';
 import { formatDateTime } from '../utils/date.js';
-import { buildStandupCollectionModal, richTextToMrkdwn } from '../utils/formatting.js';
+import {
+  buildLastEntryModal,
+  buildStandupCollectionModal,
+  richTextToMrkdwn,
+} from '../utils/formatting.js';
 import { openModal } from '../services/slack.js';
 import { prisma } from '../db/prismaClient.js';
 import { recompileStandup } from '../services/compiler.js';
@@ -101,6 +105,67 @@ export async function handleOpenStandupModal({
     logger.info({ userId: body.user.id, standupId }, 'Collection modal opened');
   } catch (error) {
     logger.error({ error }, 'Failed to open standup modal');
+  }
+}
+
+export async function handleShowLastEntry({
+  ack,
+  action,
+  client,
+  body,
+}: SlackActionMiddlewareArgs & AllMiddlewareArgs): Promise<void> {
+  try {
+    await ack();
+
+    if (!('trigger_id' in body)) {
+      logger.error({ body }, 'No trigger_id in body for show last entry');
+      return;
+    }
+
+    const standupId = 'value' in action ? (action.value as string) : '';
+    const currentStandup = await prisma.standup.findUnique({
+      where: { id: standupId },
+      select: { workspaceId: true },
+    });
+
+    if (!currentStandup) {
+      logger.error(
+        { standupId, userId: body.user.id },
+        'Stand-up not found while showing last entry'
+      );
+      return;
+    }
+
+    const lastEntry = await prisma.entry.findFirst({
+      where: {
+        userId: body.user.id,
+        standupId: { not: standupId },
+        standup: { workspaceId: currentStandup.workspaceId },
+      },
+      include: { standup: { select: { date: true } } },
+      orderBy: { submittedAt: 'desc' },
+    });
+
+    const modal = buildLastEntryModal(
+      lastEntry
+        ? {
+            date: lastEntry.standup.date,
+            yesterday: lastEntry.yesterday,
+            today: lastEntry.today,
+            blockers: lastEntry.blockers,
+            notes: lastEntry.notes,
+          }
+        : null
+    );
+
+    await openModal(client, body.trigger_id, modal);
+
+    logger.info(
+      { userId: body.user.id, standupId, hasEntry: Boolean(lastEntry) },
+      'Last entry modal opened'
+    );
+  } catch (error) {
+    logger.error({ error }, 'Failed to show last entry');
   }
 }
 

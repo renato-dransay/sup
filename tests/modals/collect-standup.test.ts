@@ -11,6 +11,9 @@ vi.mock('../../src/db/prismaClient.js', () => ({
     reminderDispatch: {
       updateMany: vi.fn(),
     },
+    entry: {
+      findFirst: vi.fn(),
+    },
   },
 }));
 
@@ -53,6 +56,7 @@ import { createExcuse } from '../../src/services/excuses.js';
 import {
   handleOpenStandupModal,
   handleSaveDraft,
+  handleShowLastEntry,
   handleSkipStandup,
   handleStandupClose,
   handleStandupSubmission,
@@ -61,6 +65,7 @@ import {
 const mockStandupFindUnique = vi.mocked(prisma.standup.findUnique);
 const mockMemberFindUnique = vi.mocked(prisma.member.findUnique);
 const mockReminderDispatchUpdateMany = vi.mocked(prisma.reminderDispatch.updateMany);
+const mockEntryFindFirst = vi.mocked(prisma.entry.findFirst);
 const mockOpenModal = vi.mocked(openModal);
 const mockGetStandupFormDraftByUserId = vi.mocked(getStandupFormDraftByUserId);
 const mockSaveStandupFormDraftByUserId = vi.mocked(saveStandupFormDraftByUserId);
@@ -243,6 +248,56 @@ describe('standup collection modal handlers', () => {
     expect(mockPostMessage).toHaveBeenCalledWith(
       expect.objectContaining({ text: expect.stringContaining('skipped') })
     );
+  });
+
+  it("opens a modal with the user's most recent prior entry", async () => {
+    mockStandupFindUnique.mockResolvedValue({ workspaceId: 'ws-1' } as never);
+    mockEntryFindFirst.mockResolvedValue({
+      yesterday: 'Reviewed PRs',
+      today: 'Ship feature',
+      blockers: 'None',
+      notes: null,
+      standup: { date: '2026-04-27' },
+    } as never);
+
+    await handleShowLastEntry({
+      ack: vi.fn().mockResolvedValue(undefined),
+      action: { value: 'standup-1' },
+      client: {} as never,
+      body: { user: { id: 'U123' }, trigger_id: 'trig-1' } as never,
+    } as never);
+
+    expect(mockEntryFindFirst).toHaveBeenCalledWith({
+      where: {
+        userId: 'U123',
+        standupId: { not: 'standup-1' },
+        standup: { workspaceId: 'ws-1' },
+      },
+      include: { standup: { select: { date: true } } },
+      orderBy: { submittedAt: 'desc' },
+    });
+    expect(mockOpenModal).toHaveBeenCalledTimes(1);
+    const modal = mockOpenModal.mock.calls[0]?.[2] as { blocks: unknown[] };
+    const serialized = JSON.stringify(modal.blocks);
+    expect(serialized).toContain('2026-04-27');
+    expect(serialized).toContain('Reviewed PRs');
+    expect(serialized).toContain('Ship feature');
+  });
+
+  it('opens a modal with empty-state message when there is no prior entry', async () => {
+    mockStandupFindUnique.mockResolvedValue({ workspaceId: 'ws-1' } as never);
+    mockEntryFindFirst.mockResolvedValue(null);
+
+    await handleShowLastEntry({
+      ack: vi.fn().mockResolvedValue(undefined),
+      action: { value: 'standup-1' },
+      client: {} as never,
+      body: { user: { id: 'U123' }, trigger_id: 'trig-1' } as never,
+    } as never);
+
+    expect(mockOpenModal).toHaveBeenCalledTimes(1);
+    const modal = mockOpenModal.mock.calls[0]?.[2] as { blocks: unknown[] };
+    expect(JSON.stringify(modal.blocks)).toContain("haven't submitted");
   });
 
   it('still sends confirmation DM even if standup is not found on skip', async () => {

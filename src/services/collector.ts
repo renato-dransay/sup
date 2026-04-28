@@ -238,6 +238,15 @@ export async function collectFromUsers(
                     type: 'button',
                     text: {
                       type: 'plain_text',
+                      text: "Yesterday's Daily",
+                    },
+                    action_id: 'show_last_entry',
+                    value: standupId,
+                  },
+                  {
+                    type: 'button',
+                    text: {
+                      type: 'plain_text',
                       text: 'Skip Today',
                     },
                     action_id: 'skip_standup',

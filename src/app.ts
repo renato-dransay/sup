@@ -32,6 +32,7 @@ import { handleAppMention } from './events/app_mention.js';
 import { createSetupConfigHandler } from './modals/setup-config.js';
 import {
   handleOpenStandupModal,
+  handleShowLastEntry,
   handleStandupClose,
   handleSaveDraft,
   handleSkipStandup,
@@ -109,6 +110,7 @@ export function createApp(config: Config): AppType {
 
   // Action listeners
   app.action('open_standup_modal', handleOpenStandupModal);
+  app.action('show_last_entry', handleShowLastEntry);
   app.action('skip_standup', handleSkipStandup);
   app.action('save_standup_draft', handleSaveDraft);
 
