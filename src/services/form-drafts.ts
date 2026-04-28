@@ -1,11 +1,18 @@
 import { prisma } from '../db/prismaClient.js';
 import { logger } from '../utils/logger.js';
 
+export const PROGRESS_STATUS = {
+  ON_TRACK: 'on_track',
+  DELAYED: 'delayed',
+} as const;
+export type ProgressStatus = (typeof PROGRESS_STATUS)[keyof typeof PROGRESS_STATUS];
+
 export interface StandupFormDraftValues {
   yesterday: string;
   today: string;
   blockers?: string;
   notes?: string;
+  progressStatus?: ProgressStatus;
 }
 
 async function getMemberId(workspaceId: string, userId: string): Promise<string | null> {
@@ -43,6 +50,8 @@ export async function saveStandupFormDraftByUserId(
     return;
   }
 
+  const progressStatus = values.progressStatus ?? PROGRESS_STATUS.ON_TRACK;
+
   await prisma.standupFormDraft.upsert({
     where: { standupId_memberId: { standupId, memberId } },
     create: {
@@ -52,12 +61,14 @@ export async function saveStandupFormDraftByUserId(
       today: values.today,
       blockers: values.blockers || null,
       notes: values.notes || null,
+      progressStatus,
     },
     update: {
       yesterday: values.yesterday,
       today: values.today,
       blockers: values.blockers || null,
       notes: values.notes || null,
+      progressStatus,
     },
   });
 

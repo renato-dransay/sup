@@ -25,6 +25,10 @@ vi.mock('../../src/services/form-drafts.js', () => ({
   getStandupFormDraftByUserId: vi.fn(),
   saveStandupFormDraftByUserId: vi.fn(),
   deleteStandupFormDraftByUserId: vi.fn(),
+  PROGRESS_STATUS: {
+    ON_TRACK: 'on_track',
+    DELAYED: 'delayed',
+  },
 }));
 
 vi.mock('../../src/services/collector.js', () => ({
@@ -175,6 +179,7 @@ describe('standup collection modal handlers', () => {
       today: 'Write tests',
       blockers: undefined,
       notes: undefined,
+      progressStatus: 'on_track',
     });
     expect(mockViewsUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -219,6 +224,45 @@ describe('standup collection modal handlers', () => {
     } as never);
 
     expect(mockDeleteStandupFormDraftByUserId).toHaveBeenCalledWith('standup-1', 'ws-1', 'U123');
+  });
+
+  it('passes the selected progress status through to saveEntry', async () => {
+    mockSaveEntry.mockResolvedValue({
+      status: 'on_time',
+      deadlineAt: null,
+    } as never);
+    mockStandupFindUnique.mockResolvedValue({
+      workspace: { timezone: 'Europe/Berlin' },
+      workspaceId: 'ws-1',
+    } as never);
+
+    await handleStandupSubmission({
+      ack: vi.fn().mockResolvedValue(undefined),
+      body: { user: { id: 'U123' } } as never,
+      client: { chat: { postMessage: vi.fn().mockResolvedValue(undefined) } } as never,
+      view: {
+        private_metadata: JSON.stringify({ standupId: 'standup-1', workspaceId: 'ws-1' }),
+        state: {
+          values: {
+            yesterday_block: { yesterday_input: { rich_text_value: richTextValue('Y') } },
+            today_block: { today_input: { rich_text_value: richTextValue('T') } },
+            blockers_block: {},
+            notes_block: {},
+            progress_block: { progress_input: { selected_option: { value: 'delayed' } } },
+          },
+        },
+      } as never,
+    } as never);
+
+    expect(mockSaveEntry).toHaveBeenCalledWith(
+      'standup-1',
+      'U123',
+      'Y',
+      'T',
+      undefined,
+      undefined,
+      'delayed'
+    );
   });
 
   it('creates an excuse and cancels reminders when user skips standup', async () => {

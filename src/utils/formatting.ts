@@ -26,6 +26,7 @@ export interface StandupCollectionDraftValues {
   today?: string | null;
   blockers?: string | null;
   notes?: string | null;
+  progressStatus?: string | null;
 }
 
 export function richTextToMrkdwn(richText: RichTextBlock): string {
@@ -636,6 +637,31 @@ export function buildStandupCollectionModal(options?: {
           text: 'Today',
         },
       },
+      ((): KnownBlock => {
+        const onTrackOption = {
+          value: 'on_track',
+          text: { type: 'plain_text' as const, text: '🟢 On Track' },
+        };
+        const delayedOption = {
+          value: 'delayed',
+          text: { type: 'plain_text' as const, text: '🟡 Delayed' },
+        };
+        const initial = initialValues?.progressStatus === 'delayed' ? delayedOption : onTrackOption;
+        return {
+          type: 'input',
+          block_id: 'progress_block',
+          element: {
+            type: 'radio_buttons',
+            action_id: 'progress_input',
+            initial_option: initial,
+            options: [onTrackOption, delayedOption],
+          },
+          label: {
+            type: 'plain_text',
+            text: 'Progress',
+          },
+        };
+      })(),
       {
         type: 'input',
         block_id: 'blockers_block',
