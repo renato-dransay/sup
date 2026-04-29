@@ -165,6 +165,7 @@ export async function handleShowLastEntry({
             today: lastEntry.today,
             blockers: lastEntry.blockers,
             notes: lastEntry.notes,
+            progressStatus: lastEntry.progressStatus,
           }
         : null
     );

@@ -64,6 +64,7 @@ export async function compileStandup(
             today: entry.today,
             blockers: entry.blockers || undefined,
             notes: entry.notes || undefined,
+            progressStatus: entry.progressStatus,
           };
         } catch (error) {
           logger.error({ error, userId: entry.userId }, 'Failed to get user info');
@@ -73,6 +74,7 @@ export async function compileStandup(
             yesterday: entry.yesterday,
             today: entry.today,
             blockers: entry.blockers || undefined,
+            progressStatus: entry.progressStatus,
           };
         }
       })
@@ -263,6 +265,7 @@ export async function regenerateSummary(
             today: entry.today,
             blockers: entry.blockers || undefined,
             notes: entry.notes || undefined,
+            progressStatus: entry.progressStatus,
           };
         } catch (error) {
           logger.error({ error, userId: entry.userId }, 'Failed to get user info');
@@ -272,6 +275,7 @@ export async function regenerateSummary(
             yesterday: entry.yesterday,
             today: entry.today,
             blockers: entry.blockers || undefined,
+            progressStatus: entry.progressStatus,
           };
         }
       })
@@ -331,6 +335,7 @@ export async function recompileStandup(
               today: entry.today,
               blockers: entry.blockers || undefined,
               notes: entry.notes || undefined,
+              progressStatus: entry.progressStatus,
             };
           } catch (error) {
             logger.error({ error, userId: entry.userId }, 'Failed to get user info');
@@ -340,6 +345,7 @@ export async function recompileStandup(
               yesterday: entry.yesterday,
               today: entry.today,
               blockers: entry.blockers || undefined,
+              progressStatus: entry.progressStatus,
             };
           }
         })

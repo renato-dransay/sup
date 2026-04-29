@@ -97,6 +97,14 @@ export interface StandupEntry {
   today: string;
   blockers?: string;
   notes?: string;
+  progressStatus?: string | null;
+}
+
+export function formatProgressStatus(status?: string | null): string | null {
+  if (!status) return null;
+  if (status === 'delayed') return '🟡 Delayed';
+  if (status === 'on_track') return '🟢 On Track';
+  return null;
 }
 
 export function buildStandupHeaderBlocks(
@@ -143,12 +151,17 @@ export function buildEntryBlock(entry: StandupEntry): KnownBlock[] {
   const yesterdayText = truncateText(`*Yesterday:*\n${entry.yesterday}`, FIELD_LIMIT);
   const todayText = truncateText(`*Today:*\n${entry.today}`, FIELD_LIMIT);
 
+  const progressLabel = formatProgressStatus(entry.progressStatus);
+  const headerText = progressLabel
+    ? `*<@${entry.userId}>* · ${progressLabel}`
+    : `*<@${entry.userId}>*`;
+
   const blocks: KnownBlock[] = [
     {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*<@${entry.userId}>*`,
+        text: headerText,
       },
     },
     {
@@ -712,6 +725,7 @@ export interface LastEntrySummary {
   today: string;
   blockers?: string | null;
   notes?: string | null;
+  progressStatus?: string | null;
 }
 
 export function buildLastEntryModal(entry: LastEntrySummary | null): {
@@ -733,12 +747,16 @@ export function buildLastEntryModal(entry: LastEntrySummary | null): {
       },
     });
   } else {
+    const progressLabel = formatProgressStatus(entry.progressStatus);
+    const headerText = progressLabel
+      ? `Your last submission — *${entry.date}* · ${progressLabel}`
+      : `Your last submission — *${entry.date}*`;
     blocks.push({
       type: 'context',
       elements: [
         {
           type: 'mrkdwn',
-          text: `Your last submission — *${entry.date}*`,
+          text: headerText,
         },
       ],
     });
