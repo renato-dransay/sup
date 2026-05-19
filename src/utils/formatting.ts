@@ -26,7 +26,6 @@ export interface StandupCollectionDraftValues {
   today?: string | null;
   blockers?: string | null;
   notes?: string | null;
-  progressStatus?: string | null;
 }
 
 export function richTextToMrkdwn(richText: RichTextBlock): string {
@@ -97,14 +96,6 @@ export interface StandupEntry {
   today: string;
   blockers?: string;
   notes?: string;
-  progressStatus?: string | null;
-}
-
-export function formatProgressStatus(status?: string | null): string | null {
-  if (!status) return null;
-  if (status === 'delayed') return '🟡 Delayed';
-  if (status === 'on_track') return '🟢 On Track';
-  return null;
 }
 
 export function buildStandupHeaderBlocks(
@@ -151,17 +142,12 @@ export function buildEntryBlock(entry: StandupEntry): KnownBlock[] {
   const yesterdayText = truncateText(`*Yesterday:*\n${entry.yesterday}`, FIELD_LIMIT);
   const todayText = truncateText(`*Today:*\n${entry.today}`, FIELD_LIMIT);
 
-  const progressLabel = formatProgressStatus(entry.progressStatus);
-  const headerText = progressLabel
-    ? `*<@${entry.userId}>* · ${progressLabel}`
-    : `*<@${entry.userId}>*`;
-
   const blocks: KnownBlock[] = [
     {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: headerText,
+        text: `*<@${entry.userId}>*`,
       },
     },
     {
@@ -650,31 +636,6 @@ export function buildStandupCollectionModal(options?: {
           text: 'Today',
         },
       },
-      ((): KnownBlock => {
-        const onTrackOption = {
-          value: 'on_track',
-          text: { type: 'plain_text' as const, text: '🟢 On Track' },
-        };
-        const delayedOption = {
-          value: 'delayed',
-          text: { type: 'plain_text' as const, text: '🟡 Delayed' },
-        };
-        const initial = initialValues?.progressStatus === 'delayed' ? delayedOption : onTrackOption;
-        return {
-          type: 'input',
-          block_id: 'progress_block',
-          element: {
-            type: 'radio_buttons',
-            action_id: 'progress_input',
-            initial_option: initial,
-            options: [onTrackOption, delayedOption],
-          },
-          label: {
-            type: 'plain_text',
-            text: 'Progress',
-          },
-        };
-      })(),
       {
         type: 'input',
         block_id: 'blockers_block',
@@ -725,7 +686,6 @@ export interface LastEntrySummary {
   today: string;
   blockers?: string | null;
   notes?: string | null;
-  progressStatus?: string | null;
 }
 
 export function buildLastEntryModal(entry: LastEntrySummary | null): {
@@ -747,16 +707,12 @@ export function buildLastEntryModal(entry: LastEntrySummary | null): {
       },
     });
   } else {
-    const progressLabel = formatProgressStatus(entry.progressStatus);
-    const headerText = progressLabel
-      ? `Your last submission — *${entry.date}* · ${progressLabel}`
-      : `Your last submission — *${entry.date}*`;
     blocks.push({
       type: 'context',
       elements: [
         {
           type: 'mrkdwn',
-          text: headerText,
+          text: `Your last submission — *${entry.date}*`,
         },
       ],
     });

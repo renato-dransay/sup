@@ -15,8 +15,6 @@ import { getTodayDate } from '../utils/date.js';
 import {
   deleteStandupFormDraftByUserId,
   getStandupFormDraftByUserId,
-  PROGRESS_STATUS,
-  ProgressStatus,
   saveStandupFormDraftByUserId,
   StandupFormDraftValues,
 } from '../services/form-drafts.js';
@@ -41,20 +39,11 @@ function parseStandupFormValues(
   const blockersRt = getRichText('blockers_block', 'blockers_input');
   const notesRt = getRichText('notes_block', 'notes_input');
 
-  const progressBlock = values['progress_block'];
-  const progressAction = progressBlock
-    ? (progressBlock['progress_input'] as { selected_option?: { value?: string } } | undefined)
-    : undefined;
-  const progressValue = progressAction?.selected_option?.value;
-  const progressStatus: ProgressStatus =
-    progressValue === PROGRESS_STATUS.DELAYED ? PROGRESS_STATUS.DELAYED : PROGRESS_STATUS.ON_TRACK;
-
   return {
     yesterday: yesterdayRt ? richTextToMrkdwn(yesterdayRt) : '',
     today: todayRt ? richTextToMrkdwn(todayRt) : '',
     blockers: blockersRt ? richTextToMrkdwn(blockersRt) || undefined : undefined,
     notes: notesRt ? richTextToMrkdwn(notesRt) || undefined : undefined,
-    progressStatus,
   };
 }
 
@@ -165,7 +154,6 @@ export async function handleShowLastEntry({
             today: lastEntry.today,
             blockers: lastEntry.blockers,
             notes: lastEntry.notes,
-            progressStatus: lastEntry.progressStatus,
           }
         : null
     );
@@ -350,8 +338,7 @@ export async function handleStandupSubmission({
       draftValues.yesterday,
       draftValues.today,
       draftValues.blockers,
-      draftValues.notes,
-      draftValues.progressStatus
+      draftValues.notes
     );
 
     if (workspaceId) {

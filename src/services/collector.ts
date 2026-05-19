@@ -397,8 +397,7 @@ export async function saveEntry(
   yesterday: string,
   today: string,
   blockers?: string,
-  notes?: string,
-  progressStatus: string = 'on_track'
+  notes?: string
 ): Promise<{ status: SubmissionStatus; deadlineAt: Date | null }> {
   try {
     const standup = await prisma.standup.findUnique({
@@ -424,7 +423,6 @@ export async function saveEntry(
         blockers: blockers || null,
         notes: notes || null,
         submissionStatus: status,
-        progressStatus,
       },
       update: {
         yesterday,
@@ -433,7 +431,6 @@ export async function saveEntry(
         notes: notes || null,
         updatedAt: now,
         submissionStatus: status,
-        progressStatus,
       },
     });
 
