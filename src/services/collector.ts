@@ -94,6 +94,37 @@ export async function createStandup(
   }
 }
 
+/**
+ * Returns today's standup for the workspace if it still needs compiling.
+ *
+ * Scoped to today's date on purpose: an earlier version selected the newest
+ * standup with `compiledAt: null` regardless of date, which posted a stale
+ * daily from a previous day when today's standup was missing or already
+ * compiled.
+ */
+export async function findStandupToCompile(
+  workspaceId: string,
+  timezone: string
+): Promise<{ id: string } | null> {
+  const date = getTodayDate(timezone);
+
+  const standup = await prisma.standup.findUnique({
+    where: {
+      workspaceId_date: {
+        workspaceId,
+        date,
+      },
+    },
+    select: { id: true, compiledAt: true },
+  });
+
+  if (!standup || standup.compiledAt) {
+    return null;
+  }
+
+  return { id: standup.id };
+}
+
 export async function seedReminderDispatches(
   standupId: string,
   userIds: string[],

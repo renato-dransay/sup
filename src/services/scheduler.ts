@@ -3,7 +3,12 @@ import { WebClient } from '@slack/web-api';
 import { prisma } from '../db/prismaClient.js';
 import { logger } from '../utils/logger.js';
 import { acquireLock, releaseLock } from '../utils/locks.js';
-import { createStandup, collectFromUsers, sendRemindersForOffset } from './collector.js';
+import {
+  createStandup,
+  collectFromUsers,
+  sendRemindersForOffset,
+  findStandupToCompile,
+} from './collector.js';
 import { compileStandup } from './compiler.js';
 import { SummarizerProvider } from './summarizer/provider.js';
 
@@ -184,22 +189,15 @@ export async function scheduleWorkspaceJob(
           try {
             logger.info({ workspaceId }, 'Starting scheduled compilation');
 
-            // Find today's standup
-            const standup = await prisma.standup.findFirst({
-              where: {
-                workspaceId,
-                compiledAt: null,
-              },
-              orderBy: {
-                startedAt: 'desc',
-              },
-            });
+            // Only compile today's standup. Selecting the newest uncompiled
+            // standup regardless of date previously posted a stale daily.
+            const standup = await findStandupToCompile(workspaceId, workspace.timezone);
 
             if (standup) {
               await compileStandup(client, standup.id, summarizer);
               logger.info({ workspaceId, standupId: standup.id }, 'Compilation completed');
             } else {
-              logger.warn({ workspaceId }, 'No standup found to compile');
+              logger.warn({ workspaceId }, 'No standup to compile for today');
             }
           } catch (error) {
             logger.error({ error, workspaceId }, 'Failed to execute compilation job');
