@@ -13,7 +13,6 @@ export async function handleAppMention({
         "👋 Hi! I'm the Stand-up Bot. Here's what I can do:\n\n" +
         '*Commands:*\n' +
         '• `/standup init` - Set up stand-ups for your workspace\n' +
-        '• `/standup today` - Run a stand-up now\n' +
         "• `/standup summary` - Generate AI summary of today's stand-up\n" +
         '• `/standup config` - Update configuration\n' +
         '• `/standup optin` - Opt in to daily stand-ups\n' +

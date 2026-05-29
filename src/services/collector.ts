@@ -41,12 +41,17 @@ export function resolveSubmissionStatus(
     : SUBMISSION_STATUS.LATE;
 }
 
+export interface CreateStandupResult {
+  id: string;
+  alreadyExisted: boolean;
+}
+
 export async function createStandup(
   workspaceId: string,
   channelId: string,
   timezone: string,
   collectionWindowMin = DEFAULT_COLLECTION_WINDOW_MIN
-): Promise<string> {
+): Promise<CreateStandupResult> {
   const date = getTodayDate(timezone);
 
   try {
@@ -65,7 +70,7 @@ export async function createStandup(
         { workspaceId, date, standupId: existing.id },
         'Stand-up already exists for today'
       );
-      return existing.id;
+      return { id: existing.id, alreadyExisted: true };
     }
 
     const startedAt = new Date();
@@ -82,7 +87,7 @@ export async function createStandup(
     });
 
     logger.info({ standupId: standup.id, workspaceId, date, deadlineAt }, 'Stand-up created');
-    return standup.id;
+    return { id: standup.id, alreadyExisted: false };
   } catch (error) {
     logger.error({ error, workspaceId, date }, 'Failed to create stand-up');
     throw error;

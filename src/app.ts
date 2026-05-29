@@ -8,7 +8,6 @@ import { createSummarizer } from './services/summarizer/openai.js';
 
 // Command handlers
 import { handleStandupInit } from './commands/standup-init.js';
-import { createStandupTodayHandler } from './commands/standup-today.js';
 import { createStandupSummaryHandler } from './commands/standup-summary.js';
 import { createStandupRecompileHandler } from './commands/standup-recompile.js';
 import { handleStandupConfig } from './commands/standup-config.js';
@@ -71,7 +70,6 @@ export function createApp(config: Config): AppType {
           text:
             '📋 *Stand-up Bot Commands*\n\n' +
             '• `/standup init` - Set up stand-ups\n' +
-            '• `/standup today` - Run stand-up now\n' +
             '• `/standup summary` - Generate summary\n' +
             '• `/standup recompile` - Update message with late submissions\n' +
             '• `/standup config` - Update config\n' +
@@ -94,7 +92,6 @@ export function createApp(config: Config): AppType {
   });
 
   app.command('/standup-init', handleStandupInit);
-  app.command('/standup-today', createStandupTodayHandler(summarizer));
   app.command('/standup-summary', createStandupSummaryHandler(summarizer));
   app.command('/standup-recompile', createStandupRecompileHandler());
   app.command('/standup-config', handleStandupConfig);

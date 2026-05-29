@@ -114,12 +114,23 @@ export async function scheduleWorkspaceJob(
           try {
             logger.info({ workspaceId, cron: weekdayCron }, 'Starting scheduled stand-up');
 
-            const standupId = await createStandup(
+            const { id: standupId, alreadyExisted } = await createStandup(
               workspaceId,
               workspace.defaultChannelId,
               workspace.timezone,
               collectionWindowMin
             );
+
+            // A standup already existing for today means this collection already ran
+            // (e.g. a duplicate/late cron fire). Its deadline is stale, so re-collecting
+            // would re-DM everyone and fire all reminders at once. Skip the fan-out.
+            if (alreadyExisted) {
+              logger.warn(
+                { workspaceId, standupId },
+                'Stand-up already exists for today; skipping collection and reminders'
+              );
+              return;
+            }
 
             const uniqueOffsets = await collectFromUsers(client, workspaceId, standupId);
             const standup = await prisma.standup.findUnique({

@@ -17,15 +17,11 @@ features:
     - command: /standup
       url: https://sup-production.up.railway.app/slack/events
       description: Show help and available commands
-      usage_hint: "[init|today|summary|recompile|config|optin|optout|status|me|weekly|prefill]"
+      usage_hint: "[init|summary|recompile|config|optin|optout|status|me|weekly|prefill]"
       should_escape: false
     - command: /standup-init
       url: https://sup-production.up.railway.app/slack/events
       description: Initialize stand-up configuration
-      should_escape: false
-    - command: /standup-today
-      url: https://sup-production.up.railway.app/slack/events
-      description: Run stand-up collection now
       should_escape: false
     - command: /standup-summary
       url: https://sup-production.up.railway.app/slack/events
