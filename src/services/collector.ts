@@ -10,7 +10,7 @@ import {
 } from '../utils/date.js';
 import { buildStandupCollectionModal } from '../utils/formatting.js';
 import { openDMChannel, openModal } from './slack.js';
-import { getOptedInUsers } from './users.js';
+import { getOptedInUsers, filterActiveUsers } from './users.js';
 import { getExcusedMemberIds } from './excuses.js';
 import { resolveUserReminderConfig } from './preferences.js';
 import { consumeDraftsForStandup } from './drafts.js';
@@ -190,7 +190,8 @@ export async function collectFromUsers(
       return [];
     }
 
-    const userIds = specificUserId ? [specificUserId] : await getOptedInUsers(workspaceId);
+    const candidateIds = specificUserId ? [specificUserId] : await getOptedInUsers(workspaceId);
+    const userIds = await filterActiveUsers(client, workspaceId, candidateIds);
     const today = getTodayDate(standup.workspace.timezone);
     const excusedUserIds = await getExcusedMemberIds(workspaceId, today);
     const excusedSet = new Set(excusedUserIds);

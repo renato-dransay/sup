@@ -1,3 +1,4 @@
+import { WebClient } from '@slack/web-api';
 import { prisma } from '../db/prismaClient.js';
 import { logger } from '../utils/logger.js';
 import { userOptInCache } from '../cache/simple-cache.js';
@@ -34,6 +35,56 @@ export async function setUserOptIn(
     logger.error({ error, workspaceId, userId }, 'Failed to update user opt-in status');
     throw error;
   }
+}
+
+/**
+ * Filters a list of opted-in user IDs down to those whose Slack accounts are
+ * still active, and prunes any deactivated accounts (optedIn=false) so they
+ * stop receiving stand-ups permanently. Fails safe: if a user's status can't
+ * be determined, the user is kept rather than removed.
+ */
+export async function filterActiveUsers(
+  client: WebClient,
+  workspaceId: string,
+  userIds: string[]
+): Promise<string[]> {
+  const active: string[] = [];
+  const deactivated: string[] = [];
+
+  for (const userId of userIds) {
+    try {
+      const result = await client.users.info({ user: userId });
+      if (result.user?.deleted) {
+        deactivated.push(userId);
+      } else {
+        active.push(userId);
+      }
+    } catch (error) {
+      logger.warn(
+        { error, workspaceId, userId },
+        'Could not determine Slack activation status; keeping user'
+      );
+      active.push(userId);
+    }
+  }
+
+  if (deactivated.length > 0) {
+    await prisma.member.updateMany({
+      where: { workspaceId, userId: { in: deactivated } },
+      data: { optedIn: false },
+    });
+
+    for (const userId of deactivated) {
+      userOptInCache.delete(`${workspaceId}:${userId}`);
+    }
+
+    logger.info(
+      { workspaceId, userIds: deactivated },
+      'Pruned deactivated Slack users from stand-ups'
+    );
+  }
+
+  return active;
 }
 
 export async function getOptedInUsers(workspaceId: string): Promise<string[]> {
