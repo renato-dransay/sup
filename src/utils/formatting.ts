@@ -98,6 +98,18 @@ export interface StandupEntry {
   notes?: string;
 }
 
+export function buildStandupChannelHeaderBlocks(date: string): KnownBlock[] {
+  return [
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `📋 *Daily Stand-up – ${date}*\n🧵 Full responses in the thread below.`,
+      },
+    },
+  ];
+}
+
 export function buildStandupHeaderBlocks(
   date: string,
   timezone: string,

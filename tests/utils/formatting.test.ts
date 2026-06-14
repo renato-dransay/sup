@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildStandupHeaderBlocks,
+  buildStandupChannelHeaderBlocks,
   buildEntryBlock,
   buildMissedSection,
   buildCompleteStandupBlocks,
@@ -8,6 +9,18 @@ import {
 } from '../../src/utils/formatting.js';
 
 describe('formatting utilities', () => {
+  describe('buildStandupChannelHeaderBlocks', () => {
+    it('builds a single compact section that points to the thread', () => {
+      const blocks = buildStandupChannelHeaderBlocks('2024-03-15');
+
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].type).toBe('section');
+      const text = (blocks[0] as { text: { text: string } }).text.text;
+      expect(text).toContain('2024-03-15');
+      expect(text.toLowerCase()).toContain('thread');
+    });
+  });
+
   describe('buildStandupHeaderBlocks', () => {
     it('should create header blocks with date, timezone, and deadline', () => {
       const blocks = buildStandupHeaderBlocks(

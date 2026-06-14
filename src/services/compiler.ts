@@ -5,6 +5,7 @@ import { formatDateTime } from '../utils/date.js';
 import {
   buildCompleteStandupBlocks,
   buildCompleteStandupBlocksGrouped,
+  buildStandupChannelHeaderBlocks,
   buildSummaryBlocks,
   buildExcusedSection,
 } from '../utils/formatting.js';
@@ -142,9 +143,20 @@ export async function compileStandup(
       blocks.push(...excusedBlocks);
     }
 
-    const result = await postMessage(
+    // Post a compact header to the channel, then the full stand-up as a thread
+    // reply, keeping the channel uncluttered. messageTs tracks the thread reply
+    // so recompile (chat.update) and the AI summary keep targeting the content.
+    const headerResult = await postMessage(
       client,
       standup.channelId,
+      buildStandupChannelHeaderBlocks(standup.date),
+      `Daily Stand-up – ${standup.date}`
+    );
+
+    const result = await postThreadReply(
+      client,
+      standup.channelId,
+      headerResult.ts as string,
       blocks,
       `Stand-up for ${standup.date}`
     );
