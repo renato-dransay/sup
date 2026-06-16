@@ -25,6 +25,26 @@ ACTION_ITEMS:
     expect(result.actionItems).toContain('Review PR #123');
   });
 
+  it('parses headers wrapped in markdown bold and strips stray asterisks', () => {
+    const mockResponse = `**HIGHLIGHTS:**
+- Alice shipped login
+
+**BLOCKERS:**
+- Alice is blocked by flaky CI
+
+**ACTION_ITEMS:**
+- Stabilize CI`;
+
+    const summarizer = new OpenAISummarizer('fake-key');
+    const result = (summarizer as any).parseSummary(mockResponse);
+
+    expect(result.highlights).toBe('- Alice shipped login');
+    expect(result.blockers).toBe('- Alice is blocked by flaky CI');
+    expect(result.actionItems).toBe('- Stabilize CI');
+    expect(result.highlights).not.toContain('*');
+    expect(result.blockers).not.toContain('*');
+  });
+
   it('should handle malformed response', () => {
     const summarizer = new OpenAISummarizer('fake-key');
     const result = (summarizer as any).parseSummary('Invalid response');

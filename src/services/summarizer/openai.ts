@@ -73,14 +73,20 @@ Keep it concise and under 2000 characters total.`;
   }
 
   private parseSummary(content: string): SummaryResult {
-    const highlightsMatch = content.match(/HIGHLIGHTS:(.*?)(?=BLOCKERS:|$)/s);
-    const blockersMatch = content.match(/BLOCKERS:(.*?)(?=ACTION_ITEMS:|$)/s);
-    const actionItemsMatch = content.match(/ACTION_ITEMS:(.*?)$/s);
+    // Models often wrap section headers in markdown bold (e.g. **HIGHLIGHTS:**).
+    // Tolerate the bold markers around the header and strip any `**` that leaks
+    // into the captured body so Slack doesn't render stray asterisks.
+    const section = (label: string, next?: string): string | undefined => {
+      const tail = next ? `(?=\\*{0,2}(?:${next})\\*{0,2}:?|$)` : '$';
+      const re = new RegExp(`\\*{0,2}${label}\\*{0,2}:?\\s*(.*?)${tail}`, 's');
+      const value = content.match(re)?.[1]?.replace(/\*\*/g, '').trim();
+      return value || undefined;
+    };
 
     return {
-      highlights: highlightsMatch?.[1]?.trim() || 'No highlights available.',
-      blockers: blockersMatch?.[1]?.trim() || 'No blockers reported.',
-      actionItems: actionItemsMatch?.[1]?.trim() || 'No action items identified.',
+      highlights: section('HIGHLIGHTS', 'BLOCKERS') ?? 'No highlights available.',
+      blockers: section('BLOCKERS', 'ACTION_ITEMS') ?? 'No blockers reported.',
+      actionItems: section('ACTION_ITEMS') ?? 'No action items identified.',
     };
   }
 }
