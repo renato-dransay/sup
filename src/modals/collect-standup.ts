@@ -327,13 +327,47 @@ export async function handleStandupSubmission({
       return;
     }
 
-    const standup = await prisma.standup.findUnique({
+    // The button carries the standupId of the DM it lives in. Slack buttons in
+    // older DMs never expire, so a user who clicks "Submit" on a previous day's
+    // message would otherwise file today's update against a past stand-up. Always
+    // resolve the workspace's CURRENT stand-up and save there instead.
+    const referencedStandup = await prisma.standup.findUnique({
       where: { id: standupId },
       include: { workspace: true },
     });
 
+    if (!referencedStandup) {
+      logger.error({ standupId, userId: body.user.id }, 'Stand-up not found while submitting');
+      return;
+    }
+
+    const today = getTodayDate(referencedStandup.workspace.timezone);
+    const standup =
+      referencedStandup.date === today
+        ? referencedStandup
+        : await prisma.standup.findUnique({
+            where: {
+              workspaceId_date: { workspaceId: referencedStandup.workspaceId, date: today },
+            },
+            include: { workspace: true },
+          });
+
+    if (!standup) {
+      logger.warn(
+        { standupId, userId: body.user.id, today },
+        'No active stand-up today; refusing to file submission against a past stand-up'
+      );
+      await client.chat.postMessage({
+        channel: body.user.id,
+        text: "⏰ There's no active stand-up right now, so your update wasn't saved. I'll DM you when the next one starts — please submit from that message.",
+      });
+      return;
+    }
+
+    const targetStandupId = standup.id;
+
     const { status, deadlineAt } = await saveEntry(
-      standupId,
+      targetStandupId,
       body.user.id,
       draftValues.yesterday,
       draftValues.today,
@@ -342,12 +376,12 @@ export async function handleStandupSubmission({
     );
 
     if (workspaceId) {
-      await deleteStandupFormDraftByUserId(standupId, workspaceId, body.user.id);
+      await deleteStandupFormDraftByUserId(targetStandupId, workspaceId, body.user.id);
     }
 
     // Send confirmation DM
     const deadlineText =
-      deadlineAt && standup?.workspace?.timezone
+      deadlineAt && standup.workspace?.timezone
         ? formatDateTime(deadlineAt, standup.workspace.timezone)
         : 'the submission deadline';
     const confirmationText = buildSubmissionConfirmationText(status, deadlineText);
@@ -358,17 +392,20 @@ export async function handleStandupSubmission({
     });
 
     // Auto-recompile if this was a late submission and standup is already compiled
-    if (status === SUBMISSION_STATUS.LATE && standup?.compiledAt) {
+    if (status === SUBMISSION_STATUS.LATE && standup.compiledAt) {
       void recompileStandup(client, standup.workspaceId, standup.date).catch(
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         (err: unknown) => {
-          logger.error({ error: err, standupId }, 'Auto-recompile failed after late submission');
+          logger.error(
+            { error: err, standupId: targetStandupId },
+            'Auto-recompile failed after late submission'
+          );
         }
       );
     }
 
     logger.info(
-      { userId: body.user.id, standupId, submissionStatus: status },
+      { userId: body.user.id, standupId: targetStandupId, submissionStatus: status },
       'Stand-up entry submitted'
     );
   } catch (error) {

@@ -39,6 +39,10 @@ vi.mock('../../src/services/excuses.js', () => ({
   createExcuse: vi.fn(),
 }));
 
+vi.mock('../../src/services/compiler.js', () => ({
+  recompileStandup: vi.fn(),
+}));
+
 vi.mock('../../src/utils/date.js', () => ({
   formatDateTime: vi.fn().mockReturnValue('10:15 AM'),
   getTodayDate: vi.fn().mockReturnValue('2026-04-09'),
@@ -53,6 +57,7 @@ import {
 } from '../../src/services/form-drafts.js';
 import { saveEntry } from '../../src/services/collector.js';
 import { createExcuse } from '../../src/services/excuses.js';
+import { recompileStandup } from '../../src/services/compiler.js';
 import {
   handleOpenStandupModal,
   handleSaveDraft,
@@ -72,6 +77,7 @@ const mockSaveStandupFormDraftByUserId = vi.mocked(saveStandupFormDraftByUserId)
 const mockDeleteStandupFormDraftByUserId = vi.mocked(deleteStandupFormDraftByUserId);
 const mockSaveEntry = vi.mocked(saveEntry);
 const mockCreateExcuse = vi.mocked(createExcuse);
+const mockRecompileStandup = vi.mocked(recompileStandup);
 
 function richTextValue(text: string) {
   return {
@@ -189,6 +195,9 @@ describe('standup collection modal handlers', () => {
       deadlineAt: new Date('2026-04-08T08:45:00.000Z'),
     } as never);
     mockStandupFindUnique.mockResolvedValue({
+      id: 'standup-1',
+      date: '2026-04-09',
+      compiledAt: null,
       workspace: { timezone: 'Europe/Berlin' },
       workspaceId: 'ws-1',
     } as never);
@@ -219,6 +228,144 @@ describe('standup collection modal handlers', () => {
     } as never);
 
     expect(mockDeleteStandupFormDraftByUserId).toHaveBeenCalledWith('standup-1', 'ws-1', 'U123');
+  });
+
+  it("files the entry against today's standup when the button references an old standup", async () => {
+    // A stale "Submit Stand-up" button from a previous day's DM carries an old
+    // standupId. The update must land on the workspace's current stand-up, not
+    // the past one the button points at.
+    mockStandupFindUnique.mockImplementation((args: never) => {
+      const where = (args as { where: { id?: string; workspaceId_date?: unknown } }).where;
+      if (where.id === 'old-standup') {
+        return Promise.resolve({
+          id: 'old-standup',
+          date: '2026-04-01',
+          workspaceId: 'ws-1',
+          workspace: { timezone: 'Europe/Berlin' },
+        }) as never;
+      }
+      if (where.workspaceId_date) {
+        return Promise.resolve({
+          id: 'today-standup',
+          date: '2026-04-09',
+          compiledAt: null,
+          workspaceId: 'ws-1',
+          workspace: { timezone: 'Europe/Berlin' },
+        }) as never;
+      }
+      return Promise.resolve(null) as never;
+    });
+    mockSaveEntry.mockResolvedValue({
+      status: 'on_time',
+      deadlineAt: new Date('2026-04-09T09:15:00.000Z'),
+    } as never);
+
+    await handleStandupSubmission({
+      ack: vi.fn().mockResolvedValue(undefined),
+      body: { user: { id: 'U123' } } as never,
+      client: { chat: { postMessage: vi.fn().mockResolvedValue(undefined) } } as never,
+      view: {
+        private_metadata: JSON.stringify({ standupId: 'old-standup', workspaceId: 'ws-1' }),
+        state: {
+          values: {
+            yesterday_block: {
+              yesterday_input: { rich_text_value: richTextValue('Shipped the thread refactor') },
+            },
+            today_block: { today_input: { rich_text_value: richTextValue('Debug stand-up bot') } },
+            blockers_block: {},
+            notes_block: {},
+          },
+        },
+      } as never,
+    } as never);
+
+    expect(mockSaveEntry).toHaveBeenCalledTimes(1);
+    expect(mockSaveEntry.mock.calls[0]?.[0]).toBe('today-standup');
+    expect(mockDeleteStandupFormDraftByUserId).toHaveBeenCalledWith('today-standup', 'ws-1', 'U123');
+  });
+
+  it('does not save the entry when no stand-up is open today', async () => {
+    mockStandupFindUnique.mockImplementation((args: never) => {
+      const where = (args as { where: { id?: string; workspaceId_date?: unknown } }).where;
+      if (where.id === 'old-standup') {
+        return Promise.resolve({
+          id: 'old-standup',
+          date: '2026-04-01',
+          workspaceId: 'ws-1',
+          workspace: { timezone: 'Europe/Berlin' },
+        }) as never;
+      }
+      return Promise.resolve(null) as never;
+    });
+    const mockPostMessage = vi.fn().mockResolvedValue(undefined);
+
+    await handleStandupSubmission({
+      ack: vi.fn().mockResolvedValue(undefined),
+      body: { user: { id: 'U123' } } as never,
+      client: { chat: { postMessage: mockPostMessage } } as never,
+      view: {
+        private_metadata: JSON.stringify({ standupId: 'old-standup', workspaceId: 'ws-1' }),
+        state: {
+          values: {
+            yesterday_block: { yesterday_input: { rich_text_value: richTextValue('Stuff') } },
+            today_block: { today_input: { rich_text_value: richTextValue('More stuff') } },
+            blockers_block: {},
+            notes_block: {},
+          },
+        },
+      } as never,
+    } as never);
+
+    expect(mockSaveEntry).not.toHaveBeenCalled();
+    expect(mockPostMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ text: expect.stringContaining("no active stand-up") })
+    );
+  });
+
+  it("recompiles today's standup (not the stale one) on a late submission after compile", async () => {
+    mockStandupFindUnique.mockImplementation((args: never) => {
+      const where = (args as { where: { id?: string; workspaceId_date?: unknown } }).where;
+      if (where.id === 'old-standup') {
+        return Promise.resolve({
+          id: 'old-standup',
+          date: '2026-04-01',
+          workspaceId: 'ws-1',
+          workspace: { timezone: 'Europe/Berlin' },
+        }) as never;
+      }
+      return Promise.resolve({
+        id: 'today-standup',
+        date: '2026-04-09',
+        compiledAt: new Date('2026-04-09T09:15:00.000Z'),
+        workspaceId: 'ws-1',
+        workspace: { timezone: 'Europe/Berlin' },
+      }) as never;
+    });
+    mockSaveEntry.mockResolvedValue({
+      status: 'late',
+      deadlineAt: new Date('2026-04-09T09:15:00.000Z'),
+    } as never);
+    mockRecompileStandup.mockResolvedValue(undefined as never);
+
+    await handleStandupSubmission({
+      ack: vi.fn().mockResolvedValue(undefined),
+      body: { user: { id: 'U123' } } as never,
+      client: { chat: { postMessage: vi.fn().mockResolvedValue(undefined) } } as never,
+      view: {
+        private_metadata: JSON.stringify({ standupId: 'old-standup', workspaceId: 'ws-1' }),
+        state: {
+          values: {
+            yesterday_block: { yesterday_input: { rich_text_value: richTextValue('Stuff') } },
+            today_block: { today_input: { rich_text_value: richTextValue('More stuff') } },
+            blockers_block: {},
+            notes_block: {},
+          },
+        },
+      } as never,
+    } as never);
+
+    expect(mockSaveEntry.mock.calls[0]?.[0]).toBe('today-standup');
+    expect(mockRecompileStandup).toHaveBeenCalledWith(expect.anything(), 'ws-1', '2026-04-09');
   });
 
   it('creates an excuse and cancels reminders when user skips standup', async () => {
